@@ -26,6 +26,17 @@ def get_desktop_files():
     print("trigger get_desktop_files")
     return os.listdir(os.path.expanduser("~/Desktop"))
 
+@my_mcp.tool()
+def get_weather_info_by_location(location: str):
+    """获取桌面上的文件列表"""
+    print("trigger get_weather_info_by_location")
+    weather_info = {
+        "temperature": "25℃",
+        "wind":"south east"
+    }
+    return weather_info
+
+
 if __name__ == "__main__":
     print("start mcp server (backend only)")
     # 通信协议：transport = 'stdio', 表示使用标准输入输出，也可替换为 HTTP 或 WebSocket
