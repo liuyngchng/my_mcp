@@ -9,10 +9,12 @@ import asyncio
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
+MCP_SERVER_ADDR="http://localhost:8001/mcp"
 
 async def client_test():
     # Connect to a streamable HTTP server
-    async with streamablehttp_client("http://localhost:8001/mcp") as (
+    print(f"MCP_SERVER_ADDR {MCP_SERVER_ADDR}")
+    async with streamablehttp_client(MCP_SERVER_ADDR) as (
         read_stream,
         write_stream,
         _,
@@ -21,10 +23,12 @@ async def client_test():
         async with ClientSession(read_stream, write_stream) as session:
             # Initialize the connection
             await session.initialize()
-            # List available tools
+            print("list_available_tools")
             tools = await session.list_tools()
-            print(f"Available tools: {[tool.name for tool in tools.tools]}")
-            result = await session.call_tool("get_desktop_files")
+            print(f"available_tools: {[tool.name for tool in tools.tools]}")
+            tool_name = "get_desktop_files"
+            print(f"start_call_tool {tool_name}")
+            result = await session.call_tool(tool_name)
             print(f"call result: {result}")
 
 
