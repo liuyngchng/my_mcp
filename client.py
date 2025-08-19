@@ -36,7 +36,7 @@ async def client_test():
             tool_name = "get_desktop_files"
             print(f"start_call_tool {tool_name}")
             result = await session.call_tool(tool_name)
-            print(f"call result: {result}")
+            print(f"call_result: {result}")
 
 async def async_get_available_tools() -> list:
     """
@@ -60,7 +60,7 @@ async def async_call_mcp_tool(tool_name: str, params: dict = None) -> Any:
     :param params: 工具参数（字典格式）
     :return: 工具执行返回结果
     """
-    print(f"调用MCP工具: {tool_name} 参数: {params}")
+    print(f"调用MCP工具: {tool_name}, 参数: {params}")
     try:
         async with streamablehttp_client(MCP_SERVER_ADDR) as (read, write, _):
             async with ClientSession(read, write) as session:
