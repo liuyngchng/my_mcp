@@ -12,22 +12,13 @@ from typing import Any
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
+# 根据自己的 MCP 服务地址，替换为自己的
 MCP_SERVER_ADDR="http://localhost:8001/mcp"
 
-MCP_TOOLS = [
-    {
-        "name": "get_weather_info_by_location",
-        "description": "查询指定地点的天气信息",
-        "parameters": {"type": "object", "properties": {"location": {"type": "string"}}}
-    },
-    {
-        "name": "get_desktop_files",
-        "description": "获取当前用户桌面文件列表",
-        "parameters": {"type": "object", "properties": {}}  # 无参数
-    }
-]
-
 async def client_test():
+    """
+    一个简单的客户端示例
+    """
     # Connect to a streamable HTTP server
     print(f"MCP_SERVER_ADDR {MCP_SERVER_ADDR}")
     async with streamablehttp_client(MCP_SERVER_ADDR) as (
@@ -48,7 +39,9 @@ async def client_test():
             print(f"call result: {result}")
 
 async def async_get_available_tools() -> list:
-    """动态获取可用工具列表"""
+    """
+    从 MCP Server 获取可用的工具列表
+    """
     async with streamablehttp_client(MCP_SERVER_ADDR) as (read, write, _):
         async with ClientSession(read, write) as session:
             await session.initialize()
@@ -62,14 +55,12 @@ async def async_get_available_tools() -> list:
 
 async def async_call_mcp_tool(tool_name: str, params: dict = None) -> Any:
     """
-    异步调用MCP工具（使用流式HTTP客户端）
+    异步调用 MCP工具（使用流式 HTTP 客户端，MCP 客户端的类型需要与 MCP server 的类型相对应）
     :param tool_name: 工具名称
     :param params: 工具参数（字典格式）
-    :return: 工具执行结果
+    :return: 工具执行返回结果
     """
-    MCP_SERVER_ADDR = "http://localhost:8001/mcp"
     print(f"调用MCP工具: {tool_name} 参数: {params}")
-
     try:
         async with streamablehttp_client(MCP_SERVER_ADDR) as (read, write, _):
             async with ClientSession(read, write) as session:
@@ -88,18 +79,19 @@ async def async_call_mcp_tool(tool_name: str, params: dict = None) -> Any:
         print(f"MCP调用失败: {str(e)}")
         raise RuntimeError(f"MCP服务调用失败: {str(e)}") from e
 
-# 同步封装函数（便于在同步代码中使用）
+
 def call_mcp_tool(tool_name: str, params: dict, cfg:dict) -> Any:
     """
-    同步调用MCP工具（封装异步调用）
+    同步调用MCP工具（封装异步调用），便于在同步代码中使用
     """
     return asyncio.run(async_call_mcp_tool(tool_name, params))
 
 
-# 新增函数
+
 def auto_call_mcp(question: str, cfg: dict) -> str:
     """
-    LLM自动选择并调用MCP工具
+    由 LLM 根据用户输入的问题，自动决策，选择并调用相应的 MCP 工具
+    当然最好由支持 tools 调用的LLM来做这个事情，自行实现在复杂场景中容易出错
     :param question: 用户问题
     :param cfg: 系统配置
     :return: 工具执行结果
