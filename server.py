@@ -27,6 +27,37 @@ def get_desktop_files():
     return os.listdir(os.path.expanduser("~/Desktop"))
 
 @app.tool()
+def get_stock_market_info():
+    return {
+        "stock_name": "Apple Inc.",
+        "stock_code": "AAPL",
+        "stock_price": "123.45",
+        "stock_volume": "1000000",
+        "stock_change": "1.23%",
+    }
+
+@app.tool()
+def get_hotel_by_loc_and_price(location: str, max_price: int):
+    return {
+        "hotel_name": "Grand Hotel",
+        "hotel_address": "123 Main St, Anytown, USA",
+        "hotel_price": "1000",
+        "hotel_rating": "5",
+    }
+
+@app.tool()
+def get_airline_info_by_location(location: str):
+    """获取某个地区的航班信息"""
+    print("trigger_get_airline_info_by_location")
+    airline_info = {
+        "airline_name": "Delta Airlines",
+        "airline_code": "Delta",
+        "airline_price": "1000",
+        "airline_rating": "5",
+    }
+    return airline_info
+
+@app.tool()
 def get_weather_info_by_location(location: str):
     """获取桌面上的文件列表"""
     print("trigger_get_weather_info_by_location")
