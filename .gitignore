@@ -1,6 +1,7 @@
 .idea
 __pycache__
 *.log
-*.yml
+**/*.yml
+**/*.yaml
 *.yaml
 *.lock
