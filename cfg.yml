@@ -1,0 +1,27 @@
+# config.yaml
+db:
+    type: sqlite
+    name: test2.db
+sys:
+    name: 大模型应用
+    auth: true
+    cfg_tkn: f5cac69586d60b98d43a2ae34d64e876
+    allowed_origin: http://192,168.1.122
+    cypher_key: 5IDlveswuXzhVQcw
+api:
+
+#  llm_api_uri: http://localhost:11434
+#    llm_api_uri: https://api.deepseek.com/v1
+#    llm_api_key: sk-7575ec4f3115433ab487d380495081b2
+#    llm_model_name: deepseek-chat
+#    asr_api_uri: http://127.0.0.1:8000/v1
+#    asr_api_key: sk-123
+#    asr_model_name: whisper-large-v3-turbo
+
+    llm_api_uri: https://aiproxy.petrotech.cnpc/v1
+    llm_api_key: sk-8rfeNuXkbyydz3cx5f7bEc5d778040Fc9374E056Df1c2fFe
+    llm_model_name: deepseek-v3
+    asr_api_uri: https://aiproxy.petrotech.cnpc/v1
+    asr_api_key: sk-8rfeNuXkbyydz3cx5f7bEc5d778040Fc9374E056Df1c2fFe
+    asr_model_name: asr
+    embedding_model_name: bge-m3

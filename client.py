@@ -7,10 +7,14 @@ Run from the repository root:
 
 import asyncio
 import json
+import logging.config
 from typing import Any
 
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
+
+logging.config.fileConfig('logging.conf', encoding="utf-8")
+logger = logging.getLogger(__name__)
 
 # 根据自己的 MCP 服务地址，替换为自己的
 MCP_SERVER_ADDR="http://localhost:8001/mcp"
@@ -20,7 +24,7 @@ async def client_test():
     一个简单的客户端示例
     """
     # Connect to a streamable HTTP server
-    print(f"MCP_SERVER_ADDR {MCP_SERVER_ADDR}")
+    logger.info(f"MCP_SERVER_ADDR {MCP_SERVER_ADDR}")
     async with streamablehttp_client(MCP_SERVER_ADDR) as (
         read_stream,
         write_stream,
@@ -30,13 +34,13 @@ async def client_test():
         async with ClientSession(read_stream, write_stream) as session:
             # Initialize the connection
             await session.initialize()
-            print("list_available_tools")
+            logger.info("list_available_tools")
             tools = await session.list_tools()
-            print(f"available_tools: {[tool.name for tool in tools.tools]}")
+            logger.info(f"available_tools: {[tool.name for tool in tools.tools]}")
             tool_name = "get_desktop_files"
-            print(f"start_call_tool {tool_name}")
+            logger.info(f"start_call_tool {tool_name}")
             result = await session.call_tool(tool_name)
-            print(f"call_result: {result}")
+            logger.info(f"call_result: {result}")
 
 async def async_get_available_tools() -> list:
     """
@@ -60,7 +64,7 @@ async def async_call_mcp_tool(tool_name: str, params: dict = None) -> Any:
     :param params: 工具参数（字典格式）
     :return: 工具执行返回结果
     """
-    print(f"调用MCP工具: {tool_name}, 参数: {params}")
+    logger.info(f"调用MCP工具: {tool_name}, 参数: {params}")
     try:
         async with streamablehttp_client(MCP_SERVER_ADDR) as (read, write, _):
             async with ClientSession(read, write) as session:
@@ -68,15 +72,15 @@ async def async_call_mcp_tool(tool_name: str, params: dict = None) -> Any:
 
                 # 获取可用工具列表（可选）
                 # tools = await session.list_tools()
-                # print(f"可用工具: {[t.name for t in tools.tools]}")
+                # logger.info(f"可用工具: {[t.name for t in tools.tools]}")
 
                 # 执行工具调用
                 result = await session.call_tool(tool_name, params or {})
-                print(f"工具调用成功: {tool_name} -> {result}")
+                logger.info(f"工具调用成功: {tool_name} -> {result}")
                 return result
 
     except Exception as e:
-        print(f"MCP调用失败: {str(e)}")
+        logger.info(f"MCP调用失败: {str(e)}")
         raise RuntimeError(f"MCP服务调用失败: {str(e)}") from e
 
 
@@ -130,12 +134,12 @@ def get_model(cfg:dict, is_remote=True):
         # 远程模型
         # from mcp.client.remote_model import RemoteModel
         # return RemoteModel(cfg["model_url"])
-        print("return_remote_model")
+        logger.info("return_remote_model")
     else:
         # 本地模型
         # from mcp.client.local_model import LocalModel
         # return LocalModel(cfg["model_path"])
-        print("return_local_model")
+        logger.info("return_local_model")
 
 def extract_tool_name(content: str, key: str) -> str:
     return None;
