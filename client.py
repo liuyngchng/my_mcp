@@ -48,20 +48,20 @@ async def async_call_mcp_tool(tool_name: str, params: dict = None) -> Any:
     :param params: 工具参数（字典格式）
     :return: 工具执行返回结果
     """
-    logger.info(f"调用MCP工具: {tool_name}, 参数: {params}")
+    logger.info(f"call_mcp_tool: {tool_name}, params: {params}")
     try:
         async with streamablehttp_client(MCP_SERVER_ADDR) as (read, write, _):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.call_tool(tool_name, params or {})
-                logger.info(f"工具调用成功: {tool_name} -> {result}")
+                logger.info(f"call_mcp_tool_success: {tool_name} -> {result}")
                 return result
 
     except Exception as e:
-        logger.info(f"MCP调用失败: {str(e)}")
-        raise RuntimeError(f"MCP服务调用失败: {str(e)}") from e
+        logger.exception(f"call_mcp_tool_exception")
+        raise RuntimeError(f"call_mcp_tool_exception: {str(e)}") from e
 
-def call_mcp_tool(tool_name: str, params: dict, cfg:dict) -> Any:
+def call_mcp_tool(tool_name: str, params: dict) -> Any:
     """
     同步调用MCP工具（封装异步调用），便于在同步代码中使用
     """
@@ -114,21 +114,18 @@ def auto_call_mcp(question: str, cfg: dict) -> str:
         header_str = ""
         for k, v in headers.items():
             header_str += f' -H "{k}: {v}" '
-        logger.info(f"curl -ks --noproxy '*' -X POST {header_str} -d '{json.dumps(data, ensure_ascii=False)}' {api}")
+        logger.info(f"curl -ks --noproxy '*' -X POST {header_str} -d '{json.dumps(data, ensure_ascii=False)}' '{api}'")
         response = requests.post(api, headers=headers, json=data, verify=False, proxies=None, timeout=10)
         logger.info(f"llm_response_status {response}")
         response_data = response.json()
         logger.info(f"llm_response_data: {json.dumps(response_data, indent=2, ensure_ascii=False)}")
         tool_call = extract_tool_call(response_data)
         if tool_call:
-            # 调用MCP工具
             return call_mcp_tool(
                 tool_name=tool_call["name"],
-                params=tool_call["arguments"],
-                cfg=cfg
+                params=tool_call["arguments"]
             )
         else:
-            # 如果没有工具调用，返回LLM的文本响应
             return response_data["choices"][0]["message"]["content"]
 
     except Exception as e:
@@ -218,5 +215,6 @@ async def test_client():
 if __name__ == "__main__":
     # asyncio.run(test_client())
     my_cfg = init_yml_cfg()
-    my_question = "我想找个凉快点儿的城市去度假，酒店价格控制在300以下，帮我做个形成规划吧"
-    auto_call_mcp(my_question, my_cfg)
+    my_question = "我想找个凉快点儿的城市去度假，酒店价格控制在300以下，帮我做个行程规划吧"
+    result = auto_call_mcp(my_question, my_cfg)
+    logger.info(f"result_for_my_question: {result}")
