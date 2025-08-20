@@ -8,6 +8,7 @@ Run from the repository root:
 import asyncio
 import json
 import logging.config
+from pickle import FALSE
 from typing import Any
 
 import requests
@@ -74,7 +75,7 @@ def auto_call_mcp(question: str, cfg: dict) -> str:
     # 获取可用的MCP工具
     tools = asyncio.run(async_get_available_tools())
     # 读取LLM配置
-    api = cfg["api"]["llm_api_uri"]
+    api = f"{cfg["api"]["llm_api_uri"]}/chat/completions"
     token = cfg["api"]["llm_api_key"]
     model_name = cfg["api"]["llm_model_name"]
     if not all([api, token, model_name]):
@@ -110,10 +111,14 @@ def auto_call_mcp(question: str, cfg: dict) -> str:
         "stream": False
     }
     try:
-        response = requests.post(api, headers=headers, json=data, verify=False)
-        logger.info(f"llm_response {response}")
+        header_str = ""
+        for k, v in headers.items():
+            header_str += f' -H "{k}: {v}" '
+        logger.info(f"curl -ks --noproxy '*' -X POST {header_str} -d '{json.dumps(data, ensure_ascii=False)}' {api}")
+        response = requests.post(api, headers=headers, json=data, verify=False, proxies=None, timeout=10)
+        logger.info(f"llm_response_status {response}")
         response_data = response.json()
-        logger.info(f"llm_response: {json.dumps(response_data, indent=2, ensure_ascii=False)}")
+        logger.info(f"llm_response_data: {json.dumps(response_data, indent=2, ensure_ascii=False)}")
         tool_call = extract_tool_call(response_data)
         if tool_call:
             # 调用MCP工具
@@ -127,7 +132,7 @@ def auto_call_mcp(question: str, cfg: dict) -> str:
             return response_data["choices"][0]["message"]["content"]
 
     except Exception as e:
-        logger.error(f"调用LLM失败: {str(e)}")
+        logger.exception(f"call_llm_err")
         raise RuntimeError(f"LLM调用失败: {str(e)}") from e
 
 def extract_tool_call(content: dict) -> dict | None:
