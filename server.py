@@ -41,7 +41,7 @@ def get_stock_market_info():
     }
 
 @app.tool()
-def get_hotel_by_loc_and_price(location: str, max_price: int):
+def get_hotel_by_city_and_price(city: str, max_price: int):
     return {
         "hotel_name": "Grand Hotel",
         "hotel_address": "123 Main St, Anytown, USA",
@@ -50,9 +50,9 @@ def get_hotel_by_loc_and_price(location: str, max_price: int):
     }
 
 @app.tool()
-def get_airline_info_by_location(location: str):
-    """获取某个地区的航班信息"""
-    logger.info("trigger_get_airline_info_by_location")
+def get_airline_info_by_city(city: str):
+    """获取某个城市的航班信息"""
+    logger.info("trigger_get_airline_info_by_city")
     airline_info = {
         "airline_name": "Delta Airlines",
         "airline_code": "Delta",
@@ -62,11 +62,36 @@ def get_airline_info_by_location(location: str):
     return airline_info
 
 @app.tool()
-def get_weather_info_by_location(location: str):
+def get_vocation_city_list():
+    """
+    获取适合度假的城市列表
+    """
+    city_list = [
+        "北京",
+        "上海",
+        "广州",
+        "深圳",
+        "成都",
+        "重庆",
+        "西安",
+        "杭州",
+        "武汉",
+        "南京",
+        "厦门",
+        "青岛",
+        "大连",
+        "天津",
+        "济南",
+        "苏州",
+        ]
+    return city_list
+
+@app.tool()
+def get_weather_info_by_city(city: str):
     """获取桌面上的文件列表"""
     logger.info("trigger_get_weather_info_by_location")
     weather_info = {
-        "temperature": "25℃",
+        "temperature": "20℃",
         "wind direction":"south east",
         "wind speed": "3m/s",
         "humidity": "60%",
