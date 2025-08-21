@@ -8,13 +8,11 @@ Run from the repository root:
 import asyncio
 import json
 import logging.config
-from pickle import FALSE
 from typing import Any
 
 import requests
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
-from agt_util import get_model
 from sys_init import init_yml_cfg
 
 logging.config.fileConfig('logging.conf', encoding="utf-8")
@@ -262,6 +260,6 @@ async def test_client():
 if __name__ == "__main__":
     # asyncio.run(test_client())
     my_cfg = init_yml_cfg()
-    my_question = "我想找个凉快点儿的城市去度假，酒店价格控制在300以下，帮我做个行程规划吧"
+    my_question = "我想找个凉快点儿的城市去度假，酒店价格控制在300以下，帮我做个行程规划吧，另外根据天气看看我该带些什么衣服比较合适"
     result = auto_call_mcp(my_question, my_cfg)
     logger.info(f"result_for_my_question: {result}")
