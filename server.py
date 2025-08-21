@@ -42,12 +42,13 @@ def get_stock_market_info():
 
 @app.tool()
 def get_hotel_by_city_and_price(city: str, max_price: int):
-    return {
-        "hotel_name": "Grand Hotel",
-        "hotel_address": "123 Main St, Anytown, USA",
-        "hotel_price": "1000",
-        "hotel_rating": "5",
-    }
+        return {
+            "hotel_name": f"Grand Hotel {city}",
+            "hotel_address": f"123 Main St, Anytown, {city}",
+            "hotel_price": max_price - 10,
+            "hotel_rating": "5",
+        }
+
 
 @app.tool()
 def get_airline_info_by_city(city: str):
