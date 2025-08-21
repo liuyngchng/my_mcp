@@ -293,7 +293,7 @@ def auto_call_mcp_yield(question: str, cfg: dict) -> Generator[str, None, None]:
             for k, v in headers.items():
                 header_str += f' -H "{k}: {v}" '
             logger.info(
-                f"curl -ks --noproxy '*' -X POST {header_str} -d '{json.dumps(data, ensure_ascii=False)}' '{api}'")
+                f"curl -ks --noproxy '*' -w'\\n' --tlsv1 -X POST {header_str} -d '{json.dumps(data, ensure_ascii=False)}' '{api}' | jq")
 
             response_data = call_llm_with_retry(api, headers, data)
             logger.info(f"llm_response_data: {json.dumps(response_data, indent=2, ensure_ascii=False)}")
