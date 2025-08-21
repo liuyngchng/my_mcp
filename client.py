@@ -75,7 +75,7 @@ def auto_call_mcp(question: str, cfg: dict) -> str:
     # 获取可用的MCP工具
     tools = asyncio.run(async_get_available_tools())
     # 读取LLM配置
-    api = f"{cfg["api"]["llm_api_uri"]}/chat/completions"
+    api = f"{cfg['api']['llm_api_uri']}/chat/completions"
     token = cfg["api"]["llm_api_key"]
     model_name = cfg["api"]["llm_model_name"]
     if not all([api, token, model_name]):
@@ -84,53 +84,100 @@ def auto_call_mcp(question: str, cfg: dict) -> str:
     # 将MCP工具转换为LLM工具格式
     llm_tools = []
     for tool in tools:
+        parameters = tool.get("inputSchema", {}).copy()
+        if "title" in parameters:
+            del parameters["title"]
+
         llm_tool = {
             "type": "function",
             "function": {
                 "name": tool["name"],
                 "description": tool.get("description", ""),
-                "parameters": tool.get("inputSchema", {})
+                "parameters": parameters
             }
         }
         llm_tools.append(llm_tool)
 
-    # 准备消息
+    # 准备初始消息
     messages = [
         {"role": "system", "content": "你是一个智能助手，可以根据用户需求选择合适的工具。"},
         {"role": "user", "content": question}
     ]
-    # 调用LLM API
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {token}"
-    }
-    data = {
-        "model": model_name,
-        "messages": messages,
-        "tools": llm_tools,
-        "stream": False
-    }
-    try:
-        header_str = ""
-        for k, v in headers.items():
-            header_str += f' -H "{k}: {v}" '
-        logger.info(f"curl -ks --noproxy '*' -X POST {header_str} -d '{json.dumps(data, ensure_ascii=False)}' '{api}'")
-        response = requests.post(api, headers=headers, json=data, verify=False, proxies=None, timeout=10)
-        logger.info(f"llm_response_status {response}")
-        response_data = response.json()
-        logger.info(f"llm_response_data: {json.dumps(response_data, indent=2, ensure_ascii=False)}")
-        tool_call = extract_tool_call(response_data)
-        if tool_call:
-            return call_mcp_tool(
-                tool_name=tool_call["name"],
-                params=tool_call["arguments"]
-            )
-        else:
-            return response_data["choices"][0]["message"]["content"]
+    # 设置最大迭代次数，防止无限循环
+    max_iterations = 10
+    iteration = 0
+    while iteration < max_iterations:
+        iteration += 1
+        logger.info(f"第 {iteration} 轮对话")
+        # 调用LLM API
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        data = {
+            "model": model_name,
+            "messages": messages,
+            "tools": llm_tools,
+            "stream": False
+        }
 
-    except Exception as e:
-        logger.exception(f"call_llm_err")
-        raise RuntimeError(f"LLM调用失败: {str(e)}") from e
+        try:
+            header_str = ""
+            for k, v in headers.items():
+                header_str += f' -H "{k}: {v}" '
+            logger.info(f"curl -ks --noproxy '*' -X POST {header_str} -d '{json.dumps(data, ensure_ascii=False)}' {api}")
+            response = requests.post(api, headers=headers, json=data, verify=False, proxies=None, timeout=10)
+            logger.info(f"llm_response_status {response}")
+            response_data = response.json()
+            logger.info(f"llm_response_data: {json.dumps(response_data, indent=2, ensure_ascii=False)}")
+            # 检查 finish_reason
+            finish_reason = response_data["choices"][0]["finish_reason"]
+
+            if finish_reason == "stop":
+                # 如果是 stop，返回最终回答
+                final_response = response_data["choices"][0]["message"]["content"]
+                logger.info(f"最终回答: {final_response}")
+                return final_response
+            elif finish_reason == "tool_calls":
+                # 如果是 tool_calls，提取并执行工具调用
+                tool_call = extract_tool_call(response_data)
+                if tool_call:
+                    # 调用MCP工具
+                    tool_result = call_mcp_tool(
+                        tool_name=tool_call["name"],
+                        params=tool_call["arguments"]
+                    )
+
+                    # 将工具调用和结果添加到消息历史中
+                    tool_call_message = response_data["choices"][0]["message"]
+                    call_msg = {"content": tool_call_message["content"], "role": tool_call_message["role"]}
+                    messages.append(call_msg)
+
+                    # 添加工具执行结果到消息历史
+                    tool_result_content = str(tool_result.content)
+                    messages.append({
+                        "role": "tool",
+                        "content": tool_result_content,
+                        "tool_call_id": tool_call_message["tool_calls"][0]["id"]
+                    })
+
+                    logger.info(f"工具调用结果已添加到消息历史，继续下一轮对话")
+                else:
+                    # 如果无法提取工具调用，返回错误
+                    logger.error("检测到工具调用但无法提取工具信息")
+                    return "处理失败：无法提取工具调用信息"
+            else:
+                # 其他情况，返回LLM的文本响应
+                final_response = response_data["choices"][0]["message"]["content"]
+                logger.info(f"最终回答 (finish_reason: {finish_reason}): {final_response}")
+                return final_response
+
+        except Exception as e:
+            logger.exception(f"call_llm_err")
+            raise RuntimeError(f"LLM调用失败: {str(e)}") from e
+
+    # 如果达到最大迭代次数仍未得到最终回答
+    return "处理超时，未能生成完整回答"
 
 def extract_tool_call(content: dict) -> dict | None:
     """
