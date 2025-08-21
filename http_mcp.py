@@ -7,7 +7,10 @@ Flask Web 界面 for MCP 客户端
 import logging
 import logging.config
 import json
-from flask import Flask, render_template, request, jsonify, Response, stream_with_context
+import os
+import re
+
+from flask import Flask, render_template, request, jsonify, Response, stream_with_context, abort, send_from_directory
 from client import auto_call_mcp, auto_call_mcp_yield, init_yml_cfg
 
 # 配置日志
@@ -16,6 +19,10 @@ logger = logging.getLogger(__name__)
 
 # 创建 Flask 应用
 app = Flask(__name__)
+app.config['JSON_AS_ASCII'] = False
+os.system(
+    "unset https_proxy ftp_proxy NO_PROXY FTP_PROXY HTTPS_PROXY HTTP_PROXY http_proxy ALL_PROXY all_proxy no_proxy"
+)
 
 # 初始化配置
 cfg = init_yml_cfg()

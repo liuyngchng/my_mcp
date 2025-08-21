@@ -71,14 +71,14 @@ def call_mcp_tool(tool_name: str, params: dict) -> Any:
     return asyncio.run(async_call_mcp_tool(tool_name, params))
 
 
-def call_llm_with_retry(api: str, headers: dict, data: dict, max_retries: int = 3) -> dict:
+def call_llm_with_retry(api: str, headers: dict, data: dict, cfg:dict, max_retries: int = 3) -> dict:
     """
     带重试机制的LLM调用
     """
     for attempt in range(max_retries):
         try:
-            logger.info(f"第 {attempt + 1} 次尝试调用LLM API")
-            response = requests.post(api, headers=headers, json=data, verify=False, proxies=None, timeout=30)
+            logger.info(f"第 {attempt + 1} 次尝试调用LLM API, proxies: {cfg['api']['proxy']}")
+            response = requests.post(api, headers=headers, json=data, verify=False, proxies=cfg['api']['proxy'], timeout=30)
             logger.info(f"llm_response_status {response.status_code}")
 
             if response.status_code == 200:
@@ -160,7 +160,7 @@ def auto_call_mcp(question: str, cfg: dict) -> str:
                 header_str += f' -H "{k}: {v}" '
             logger.info(
                 f"curl -ks --noproxy '*' -X POST {header_str} -d '{json.dumps(data, ensure_ascii=False)}' '{api}'")
-            response_data = call_llm_with_retry(api, headers, data)
+            response_data = call_llm_with_retry(api, headers, data, cfg)
             logger.info(f"llm_response_data: {json.dumps(response_data, indent=2, ensure_ascii=False)}")
             if "error" in response_data:
                 logger.error(f"LLM API 返回错误: {response_data['error']}")
@@ -295,7 +295,7 @@ def auto_call_mcp_yield(question: str, cfg: dict) -> Generator[str, None, None]:
             logger.info(
                 f"curl -ks --noproxy '*' -w'\\n' --tlsv1 -X POST {header_str} -d '{json.dumps(data, ensure_ascii=False)}' '{api}' | jq")
 
-            response_data = call_llm_with_retry(api, headers, data)
+            response_data = call_llm_with_retry(api, headers, data, cfg)
             logger.info(f"llm_response_data: {json.dumps(response_data, indent=2, ensure_ascii=False)}")
 
             if "error" in response_data:
@@ -343,7 +343,7 @@ def auto_call_mcp_yield(question: str, cfg: dict) -> Generator[str, None, None]:
                         # 发送工具执行开始信息
                         yield json.dumps({
                             "type": "tool_start",
-                            "content": f"正在执行工具: {tool_call['name']}, {tool_call["arguments"]}",
+                            "content": f"正在执行工具: {tool_call['name']}, {json.dumps(tool_call["arguments"], ensure_ascii=False)}",
                             "tool": tool_call["name"],
                             "iteration": iteration
                         }, ensure_ascii=False)
