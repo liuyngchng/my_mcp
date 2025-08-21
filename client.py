@@ -16,6 +16,7 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 from sys_init import init_yml_cfg
 
+# 配置日志
 logging.config.fileConfig('logging.conf', encoding="utf-8")
 logger = logging.getLogger(__name__)
 
@@ -156,7 +157,7 @@ def auto_call_mcp(question: str, cfg: dict) -> str:
             logger.info(
                 f"curl -ks --noproxy '*' -X POST {header_str} -d '{json.dumps(data, ensure_ascii=False)}' '{api}'")
             response_data = call_llm_with_retry(api, headers, data)
-            logger.info(f"llm_response_status {response_data}")
+            logger.info(f"llm_response_data: {json.dumps(response_data, indent=2, ensure_ascii=False)}")
             if "error" in response_data:
                 logger.error(f"LLM API 返回错误: {response_data['error']}")
                 return f"LLM API 错误: {response_data['error']['message']}"
@@ -243,7 +244,7 @@ def extract_tool_calls(content: dict) -> list[dict] | None:
 
 
 if __name__ == "__main__":
-    # asyncio.run(test_client())
+    # 直接运行时的测试代码
     my_cfg = init_yml_cfg()
     my_question = "我想找个凉快点儿的城市去度假，酒店价格控制在300以下，帮我做个行程规划吧，另外根据天气看看我该带些什么衣服比较合适"
     result = auto_call_mcp(my_question, my_cfg)
