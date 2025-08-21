@@ -148,8 +148,8 @@ def auto_call_mcp(question: str, cfg: dict) -> str:
 
                     # 将工具调用和结果添加到消息历史中
                     tool_call_message = response_data["choices"][0]["message"]
-                    call_msg = {"content": tool_call_message["content"], "role": tool_call_message["role"]}
-                    messages.append(call_msg)
+                    # call_msg = {"content": tool_call_message["content"], "role": tool_call_message["role"]}
+                    messages.append(tool_call_message)
 
                     # 添加工具执行结果到消息历史
                     tool_result_content = str(tool_result.content)
