@@ -343,7 +343,7 @@ def auto_call_mcp_yield(question: str, cfg: dict) -> Generator[str, None, None]:
                         # 发送工具执行开始信息
                         yield json.dumps({
                             "type": "tool_start",
-                            "content": f"正在执行工具: {tool_call['name']}",
+                            "content": f"正在执行工具: {tool_call['name']}, {tool_call["arguments"]}",
                             "tool": tool_call["name"],
                             "iteration": iteration
                         }, ensure_ascii=False)
