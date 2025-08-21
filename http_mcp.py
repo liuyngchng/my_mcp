@@ -6,8 +6,9 @@ Flask Web 界面 for MCP 客户端
 
 import logging
 import logging.config
-from flask import Flask, render_template, request, jsonify
-from client import auto_call_mcp, init_yml_cfg
+import json
+from flask import Flask, render_template, request, jsonify, Response, stream_with_context
+from client import auto_call_mcp, auto_call_mcp_yield, init_yml_cfg
 
 # 配置日志
 logging.config.fileConfig('logging.conf', encoding="utf-8")
@@ -38,15 +39,39 @@ def process_query():
         question = data['question']
         logger.info(f"收到用户查询: {question}")
 
-        # 调用 MCP 客户端处理查询
-        result = auto_call_mcp(question, cfg)
+        # 检查是否请求流式响应
+        stream = data.get('stream', False)
 
-        # 返回结果
-        return jsonify({
-            'success': True,
-            'question': question,
-            'answer': result
-        })
+        if stream:
+            # 流式响应
+            def generate():
+                try:
+                    for chunk in auto_call_mcp_yield(question, cfg):
+                        yield f"data: {chunk}\n\n"
+                    yield "data: [DONE]\n\n"
+                except Exception as e:
+                    error_msg = json.dumps({
+                        "type": "error",
+                        "content": f"处理过程中发生错误: {str(e)}"
+                    }, ensure_ascii=False)
+                    yield f"data: {error_msg}\n\n"
+                    yield "data: [DONE]\n\n"
+
+            return Response(stream_with_context(generate()),
+                            mimetype='text/event-stream',
+                            headers={
+                                'Cache-Control': 'no-cache',
+                                'Connection': 'keep-alive',
+                                'X-Accel-Buffering': 'no'  # 禁用Nginx缓冲
+                            })
+        else:
+            # 普通响应
+            result = auto_call_mcp(question, cfg)
+            return jsonify({
+                'success': True,
+                'question': question,
+                'answer': result
+            })
 
     except Exception as e:
         logger.exception("处理查询时发生错误")
