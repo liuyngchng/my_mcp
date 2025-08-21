@@ -8,6 +8,7 @@ Run from the repository root:
 import asyncio
 import json
 import logging.config
+import time
 from typing import Any
 
 import requests
@@ -65,6 +66,35 @@ def call_mcp_tool(tool_name: str, params: dict) -> Any:
     """
     return asyncio.run(async_call_mcp_tool(tool_name, params))
 
+
+def call_llm_with_retry(api: str, headers: dict, data: dict, max_retries: int = 3) -> dict:
+    """
+    带重试机制的LLM调用
+    """
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"第 {attempt + 1} 次尝试调用LLM API")
+            response = requests.post(api, headers=headers, json=data, verify=False, proxies=None, timeout=30)
+            logger.info(f"llm_response_status {response.status_code}")
+
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.warning(f"LLM API 返回非200状态码: {response.status_code}")
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)  # 指数退避
+
+        except requests.exceptions.Timeout:
+            logger.warning(f"LLM API 调用超时，尝试 {attempt + 1}/{max_retries}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)  # 指数退避
+        except Exception as e:
+            logger.warning(f"LLM API 调用失败: {str(e)}，尝试 {attempt + 1}/{max_retries}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)  # 指数退避
+
+    # 所有重试都失败
+    raise RuntimeError(f"LLM API 调用失败，已重试 {max_retries} 次")
 
 def auto_call_mcp(question: str, cfg: dict) -> str:
     """
@@ -125,10 +155,8 @@ def auto_call_mcp(question: str, cfg: dict) -> str:
                 header_str += f' -H "{k}: {v}" '
             logger.info(
                 f"curl -ks --noproxy '*' -X POST {header_str} -d '{json.dumps(data, ensure_ascii=False)}' '{api}'")
-            response = requests.post(api, headers=headers, json=data, verify=False, proxies=None, timeout=10)
-            logger.info(f"llm_response_status {response}")
-            response_data = response.json()
-            logger.info(f"llm_response_data: {json.dumps(response_data, indent=2, ensure_ascii=False)}")
+            response_data = call_llm_with_retry(api, headers, data)
+            logger.info(f"llm_response_status {response_data}")
             if "error" in response_data:
                 logger.error(f"LLM API 返回错误: {response_data['error']}")
                 return f"LLM API 错误: {response_data['error']['message']}"
@@ -213,29 +241,6 @@ def extract_tool_calls(content: dict) -> list[dict] | None:
         logger.error(f"解析工具调用失败: {str(e)}")
         return None
 
-
-async def test_client():
-    """
-    一个简单的客户端示例
-    """
-    # Connect to a streamable HTTP server
-    logger.info(f"MCP_SERVER_ADDR {MCP_SERVER_ADDR}")
-    async with streamablehttp_client(MCP_SERVER_ADDR) as (
-        read_stream,
-        write_stream,
-        _,
-    ):
-        # Create a session using the client streams
-        async with ClientSession(read_stream, write_stream) as session:
-            # Initialize the connection
-            await session.initialize()
-            logger.info("list_available_tools")
-            tools = await session.list_tools()
-            logger.info(f"available_tools: {[tool.name for tool in tools.tools]}")
-            tool_name = "get_desktop_files"
-            logger.info(f"start_call_tool {tool_name}")
-            result = await session.call_tool(tool_name)
-            logger.info(f"call_result: {result}")
 
 if __name__ == "__main__":
     # asyncio.run(test_client())
