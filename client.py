@@ -123,11 +123,16 @@ def auto_call_mcp(question: str, cfg: dict) -> str:
             header_str = ""
             for k, v in headers.items():
                 header_str += f' -H "{k}: {v}" '
-            logger.info(f"curl -ks --noproxy '*' -X POST {header_str} -d '{json.dumps(data, ensure_ascii=False)}' {api}")
+            logger.info(
+                f"curl -ks --noproxy '*' -X POST {header_str} -d '{json.dumps(data, ensure_ascii=False)}' '{api}'")
             response = requests.post(api, headers=headers, json=data, verify=False, proxies=None, timeout=10)
             logger.info(f"llm_response_status {response}")
             response_data = response.json()
             logger.info(f"llm_response_data: {json.dumps(response_data, indent=2, ensure_ascii=False)}")
+            if "error" in response_data:
+                logger.error(f"LLM API 返回错误: {response_data['error']}")
+                return f"LLM API 错误: {response_data['error']['message']}"
+
             # 检查 finish_reason
             finish_reason = response_data["choices"][0]["finish_reason"]
 
@@ -137,29 +142,30 @@ def auto_call_mcp(question: str, cfg: dict) -> str:
                 logger.info(f"最终回答: {final_response}")
                 return final_response
             elif finish_reason == "tool_calls":
-                # 如果是 tool_calls，提取并执行工具调用
-                tool_call = extract_tool_call(response_data)
-                if tool_call:
-                    # 调用MCP工具
-                    tool_result = call_mcp_tool(
-                        tool_name=tool_call["name"],
-                        params=tool_call["arguments"]
-                    )
-
-                    # 将工具调用和结果添加到消息历史中
+                # 如果是 tool_calls，提取并执行所有工具调用
+                tool_calls = extract_tool_calls(response_data)
+                if tool_calls:
+                    # 将工具调用消息添加到历史
                     tool_call_message = response_data["choices"][0]["message"]
-                    # call_msg = {"content": tool_call_message["content"], "role": tool_call_message["role"]}
                     messages.append(tool_call_message)
 
-                    # 添加工具执行结果到消息历史
-                    tool_result_content = str(tool_result.content)
-                    messages.append({
-                        "role": "tool",
-                        "content": tool_result_content,
-                        "tool_call_id": tool_call_message["tool_calls"][0]["id"]
-                    })
+                    # 执行所有工具调用并收集结果
+                    for tool_call in tool_calls:
+                        # 调用MCP工具
+                        tool_result = call_mcp_tool(
+                            tool_name=tool_call["name"],
+                            params=tool_call["arguments"]
+                        )
 
-                    logger.info(f"工具调用结果已添加到消息历史，继续下一轮对话")
+                        # 添加工具执行结果到消息历史
+                        tool_result_content = str(tool_result.content)
+                        messages.append({
+                            "role": "tool",
+                            "content": tool_result_content,
+                            "tool_call_id": tool_call["id"]
+                        })
+
+                    logger.info(f"所有工具调用结果已添加到消息历史，继续下一轮对话")
                 else:
                     # 如果无法提取工具调用，返回错误
                     logger.error("检测到工具调用但无法提取工具信息")
@@ -177,38 +183,9 @@ def auto_call_mcp(question: str, cfg: dict) -> str:
     # 如果达到最大迭代次数仍未得到最终回答
     return "处理超时，未能生成完整回答"
 
-def extract_tool_call(content: dict) -> dict | None:
+def extract_tool_calls(content: dict) -> list[dict] | None:
     """
-    content 内容格式如下所示：
-    {
-      "choices": [
-        {
-          "finish_reason": "tool_calls",
-          "index": 0,
-          "logprobs": null,
-          "message": {
-            "content": null,
-            "function_call": null,
-            "role": "assistant",
-            "tool_calls": [
-              {
-                "function": {
-                  "arguments": "{\"location\": \"\\u4f26\\u6566\", \"unit\": \"celsius\"}",
-                  "name": "get_weather"
-                },
-                "id": "chatcmpl-tool-427dc9f32099443da4bf3c429b30b17d",
-                "type": "function"
-              }
-            ]
-          },
-          "stop_reason": null
-        }
-      ],
-      "model": "qwen2dot5-7b-chat",
-      "object": "chat.completion"
-    }
-    Returns:
-            字典格式 {"tool": "工具名", "arguments": {"参数": "值"}}
+    提取多个工具调用信息
     """
     try:
         if "choices" not in content:
@@ -222,13 +199,16 @@ def extract_tool_call(content: dict) -> dict | None:
         if "tool_calls" not in message or not message["tool_calls"]:
             return None
 
-        tool_call = message["tool_calls"][0]
-        function = tool_call["function"]
+        tool_calls = []
+        for tool_call in message["tool_calls"]:
+            function = tool_call["function"]
+            tool_calls.append({
+                "id": tool_call["id"],
+                "name": function["name"],
+                "arguments": json.loads(function["arguments"])
+            })
+        return tool_calls
 
-        return {
-            "name": function["name"],
-            "arguments": json.loads(function["arguments"])
-        }
     except (KeyError, IndexError, json.JSONDecodeError) as e:
         logger.error(f"解析工具调用失败: {str(e)}")
         return None
