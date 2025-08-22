@@ -25,13 +25,13 @@ async def health_check(request: Request):
     return JSONResponse({"status": "ok"})
 
 @app.tool()
-def get_desktop_files():
+def get_desktop_files() -> list:
     """获取桌面上的文件列表"""
     logger.info("trigger_get_desktop_files")
     return os.listdir(os.path.expanduser("~/Desktop"))
 
 @app.tool()
-def get_stock_market_info():
+def get_stock_market_info() -> dict:
     logger.info("trigger_get_stock_market_info")
     return {
         "stock_name": "Apple Inc.",
@@ -42,7 +42,7 @@ def get_stock_market_info():
     }
 
 @app.tool()
-def get_hotel_by_city_and_price(city: str, max_price: int):
+def get_hotel_by_city_and_price(city: str, max_price: int) -> dict:
     logger.info("trigger_get_hotel_by_city_and_price")
     return {
         "hotel_name": f"Grand Hotel {city}",
@@ -53,9 +53,9 @@ def get_hotel_by_city_and_price(city: str, max_price: int):
 
 
 @app.tool()
-def get_airline_info_by_city(city: str):
+def get_airline_info_by_city(city: str) -> dict:
     """获取某个城市的航班信息"""
-    logger.info("trigger_get_airline_info_by_city")
+    logger.info(f"trigger_get_airline_info_by_city({city})")
     airline_info = {
         "airline_name": "Delta Airlines",
         "airline_code": "Delta",
@@ -65,7 +65,7 @@ def get_airline_info_by_city(city: str):
     return airline_info
 
 @app.tool()
-def get_vocation_city_list():
+def get_vocation_city_list() -> list:
     """
     获取适合度假的城市列表
     """
@@ -91,9 +91,9 @@ def get_vocation_city_list():
     return city_list
 
 @app.tool()
-def get_weather_info_by_city(city: str):
+def get_weather_info_by_city(city: str) -> dict:
     """获取桌面上的文件列表"""
-    logger.info("trigger_get_weather_info_by_location")
+    logger.info(f"trigger_get_weather_info_by_location({city})")
     weather_info = {
         "temperature": "20℃",
         "wind direction":"south east",
