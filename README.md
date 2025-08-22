@@ -5,7 +5,7 @@
 # 2. pip
 
 ```shell
-pip install mcp mcp[cli] concurrent_log_handler pyyaml \
+pip install mcp mcp[cli] concurrent_log_handler pyyaml gunicorn \
   flask
 
 ```
