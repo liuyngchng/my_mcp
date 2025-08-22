@@ -75,10 +75,11 @@ def call_llm_with_retry(api: str, headers: dict, data: dict, cfg:dict, max_retri
     """
     带重试机制的LLM调用
     """
+    proxies = cfg['api'].get('proxy', None)
     for attempt in range(max_retries):
         try:
-            logger.info(f"第 {attempt + 1} 次尝试调用LLM API, proxies: {cfg['api']['proxy']}")
-            response = requests.post(api, headers=headers, json=data, verify=False, proxies=cfg['api']['proxy'], timeout=30)
+            logger.info(f"第 {attempt + 1} 次尝试调用LLM API, proxies: {proxies}")
+            response = requests.post(api, headers=headers, json=data, verify=False, proxies=proxies, timeout=30)
             logger.info(f"llm_response_status {response.status_code}")
 
             if response.status_code == 200:
