@@ -111,6 +111,16 @@ def get_weather_info_by_city(city: str) -> dict:
     }
     return weather_info
 
+@app.resource("file:///path/to/file.txt")
+def read_file(uri: str) -> str:
+    """根据文件路径读取文件内容"""
+    with open(uri.replace("file://", ""), "r") as f:
+        return f.read()
+
+@app.prompt()
+def vacation_plan_prompt(city: str) -> str:
+    """生成度假计划提示模板"""
+    return f"请为{city}设计一个3天的度假计划，包含景点、餐饮和住宿建议"
 
 if __name__ == "__main__":
     logger.info("start mcp server (backend only)")
