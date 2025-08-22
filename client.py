@@ -452,5 +452,5 @@ if __name__ == "__main__":
 
     # 测试普通输出
     logger.info("\n测试普通输出:")
-    result = auto_call_mcp(my_question, my_cfg)
-    logger.info(f"最终结果: {result}")
+    my_result = auto_call_mcp(my_question, my_cfg)
+    logger.info(f"最终结果: {my_result}")

@@ -32,6 +32,7 @@ def get_desktop_files():
 
 @app.tool()
 def get_stock_market_info():
+    logger.info("trigger_get_stock_market_info")
     return {
         "stock_name": "Apple Inc.",
         "stock_code": "AAPL",
@@ -42,12 +43,13 @@ def get_stock_market_info():
 
 @app.tool()
 def get_hotel_by_city_and_price(city: str, max_price: int):
-        return {
-            "hotel_name": f"Grand Hotel {city}",
-            "hotel_address": f"123 Main St, Anytown, {city}",
-            "hotel_price": max_price - 10,
-            "hotel_rating": "5",
-        }
+    logger.info("trigger_get_hotel_by_city_and_price")
+    return {
+        "hotel_name": f"Grand Hotel {city}",
+        "hotel_address": f"123 Main St, Anytown, {city}",
+        "hotel_price": max_price - 10,
+        "hotel_rating": "5",
+    }
 
 
 @app.tool()
@@ -67,6 +69,7 @@ def get_vocation_city_list():
     """
     获取适合度假的城市列表
     """
+    logger.info("trigger_get_vocation_city_list")
     city_list = [
         "北京",
         "上海",
