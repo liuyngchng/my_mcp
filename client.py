@@ -115,22 +115,7 @@ def auto_call_mcp(question: str, cfg: dict) -> str:
         raise ValueError("读取LLM配置出现错误")
 
     # 将MCP工具转换为LLM工具格式
-    llm_tools = []
-    for tool in tools:
-        parameters = tool.get("inputSchema", {}).copy()
-        if "title" in parameters:
-            del parameters["title"]
-
-        llm_tool = {
-            "type": "function",
-            "function": {
-                "name": tool["name"],
-                "description": tool.get("description", ""),
-                "parameters": parameters
-            }
-        }
-        llm_tools.append(llm_tool)
-
+    llm_tools = build_llm_tools(tools)
     # 准备初始消息
     messages = [
         {"role": "system", "content": "你是一个智能助手，可以根据用户需求选择合适的工具。"},
@@ -232,21 +217,7 @@ def auto_call_mcp_yield(question: str, cfg: dict) -> Generator[str, None, None]:
         raise ValueError("读取LLM配置出现错误")
 
     # 将MCP工具转换为LLM工具格式
-    llm_tools = []
-    for tool in tools:
-        parameters = tool.get("inputSchema", {}).copy()
-        if "title" in parameters:
-            del parameters["title"]
-
-        llm_tool = {
-            "type": "function",
-            "function": {
-                "name": tool["name"],
-                "description": tool.get("description", ""),
-                "parameters": parameters
-            }
-        }
-        llm_tools.append(llm_tool)
+    llm_tools = build_llm_tools(tools)
 
     # 准备初始消息
     messages = [
@@ -408,6 +379,25 @@ def auto_call_mcp_yield(question: str, cfg: dict) -> Generator[str, None, None]:
     }, ensure_ascii=False)
 
 
+def build_llm_tools(tools):
+    llm_tools = []
+    for tool in tools:
+        parameters = tool.get("inputSchema", {}).copy()
+        if "title" in parameters:
+            del parameters["title"]
+
+        llm_tool = {
+            "type": "function",
+            "function": {
+                "name": tool["name"],
+                "description": tool.get("description", ""),
+                "parameters": parameters
+            }
+        }
+        llm_tools.append(llm_tool)
+    return llm_tools
+
+
 def extract_tool_calls(content: dict) -> list[dict] | None:
     """
     提取多个工具调用信息
@@ -447,8 +437,8 @@ if __name__ == "__main__":
     # 测试流式输出
     logger.info("测试流式输出:")
     for chunk in auto_call_mcp_yield(my_question, my_cfg):
-        data = json.loads(chunk)
-        print(f"[{data['type']}] {data.get('content', '')}")
+        my_data = json.loads(chunk)
+        print(f"[{my_data['type']}] {my_data.get('content', '')}")
 
     # 测试普通输出
     logger.info("\n测试普通输出:")
