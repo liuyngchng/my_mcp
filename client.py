@@ -6,6 +6,8 @@ Run from the repository root:
 """
 
 import asyncio
+from datetime import datetime, timedelta
+import hashlib
 import json
 import logging.config
 import time
@@ -20,43 +22,119 @@ from sys_init import init_yml_cfg
 logging.config.fileConfig('logging.conf', encoding="utf-8")
 logger = logging.getLogger(__name__)
 
-MCP_SERVER_ADDR = "http://localhost:8001/mcp"
+# 定义多个MCP服务器地址
+MCP_SERVER_ADDR_LIST = [
+    "http://localhost:8001/mcp",
+]
+
+# 全局缓存
+TOOLS_CACHE = {
+    "tools": [],
+    "tool_server_map": {},
+    "last_updated": None
+}
+
+# 缓存有效期（分钟）
+CACHE_EXPIRY_MINUTES = 30
+
+def get_tool_unique_name(tool_name: str, server_addr: str) -> str:
+    """为工具生成唯一名称，避免不同服务器的同名工具冲突"""
+    # 使用服务器地址的哈希值作为后缀
+    server_hash = hashlib.md5(server_addr.encode()).hexdigest()[:8]
+    return f"{tool_name}@{server_hash}"
 
 
-async def async_get_available_tools() -> list:
+def parse_tool_unique_name(unique_name: str) -> tuple:
+    """解析工具的唯一名称，返回工具名和服务器地址哈希"""
+    if "@" in unique_name:
+        return unique_name.split("@", 1)
+    return unique_name, None
+
+
+async def async_get_available_tools(force_refresh: bool = False) -> list:
     """
-    从 MCP Server 获取可用的工具列表
+    从所有MCP Server获取可用的工具列表，支持缓存
     """
-    async with streamablehttp_client(MCP_SERVER_ADDR) as (read, write, _):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            tools_resp = await session.list_tools()  # 关键调用
-            logger.info(f"mcp_available_tools: {tools_resp}")
-            return [{
-                "name": tool.name,
-                "title": tool.title,
-                "description": tool.description,
-                "inputSchema": tool.inputSchema,
-                "outputSchema": tool.outputSchema,
-                "annotations": tool.annotations,
-                "meta": tool.meta
-            } for tool in tools_resp.tools]
+    global TOOLS_CACHE
+
+    # 检查缓存是否有效
+    current_time = datetime.now()  # 使用正确的datetime.now()
+    if (not force_refresh and TOOLS_CACHE["last_updated"] and
+            (current_time - TOOLS_CACHE["last_updated"]) < timedelta(minutes=CACHE_EXPIRY_MINUTES)):
+        logger.info(f"使用缓存的工具列表，最后更新于 {TOOLS_CACHE['last_updated']}")
+        return TOOLS_CACHE["tools"]
+
+    all_tools = []
+    tool_server_map = {}
+
+    for server_addr in MCP_SERVER_ADDR_LIST:
+        try:
+            async with streamablehttp_client(server_addr) as (read, write, _):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    tools_resp = await session.list_tools()
+                    logger.info(f"从服务器 {server_addr} 获取到 {len(tools_resp.tools)} 个工具")
+
+                    for tool in tools_resp.tools:
+                        # 为工具生成唯一名称
+                        unique_name = get_tool_unique_name(tool.name, server_addr)
+
+                        # 记录工具到服务器的映射
+                        tool_server_map[unique_name] = server_addr
+
+                        # 添加工具信息
+                        all_tools.append({
+                            "name": unique_name,  # 使用唯一名称
+                            "original_name": tool.name,  # 保留原始名称
+                            "title": tool.title,
+                            "description": tool.description,
+                            "inputSchema": tool.inputSchema,
+                            "outputSchema": tool.outputSchema,
+                            "annotations": tool.annotations,
+                            "meta": tool.meta,
+                            "server": server_addr  # 记录服务器地址
+                        })
+        except Exception as e:
+            logger.error(f"连接服务器 {server_addr} 失败: {str(e)}")
+            continue
+
+    # 更新缓存
+    TOOLS_CACHE["tools"] = all_tools
+    TOOLS_CACHE["tool_server_map"] = tool_server_map
+    TOOLS_CACHE["last_updated"] = current_time
+
+    logger.info(f"总共获取到 {len(all_tools)} 个工具，已缓存， {TOOLS_CACHE}")
+    return all_tools
 
 
-async def async_call_mcp_tool(tool_name: str, params: dict = None) -> Any:
+async def async_call_mcp_tool(unique_tool_name: str, params: dict = None) -> Any:
     """
-    异步调用 MCP工具（使用流式 HTTP 客户端，MCP 客户端的类型需要与 MCP server 的类型相对应）
-    :param tool_name: 工具名称
+    异步调用 MCP工具，根据工具唯一名称找到对应的服务器
+    :param unique_tool_name: 工具唯一名称（包含服务器哈希）
     :param params: 工具参数（字典格式）
     :return: 工具执行返回结果
     """
-    logger.info(f"call_mcp_tool: {tool_name}, params: {params}")
+    logger.info(f"call_mcp_tool: {unique_tool_name}, params: {params}")
+
+    # 查找工具对应的服务器
+    server_addr = TOOLS_CACHE["tool_server_map"].get(unique_tool_name)
+    if not server_addr:
+        # 如果缓存中没有，尝试刷新缓存
+        await async_get_available_tools(force_refresh=True)
+        server_addr = TOOLS_CACHE["tool_server_map"].get(unique_tool_name)
+        if not server_addr:
+            raise ValueError(f"未找到工具 {unique_tool_name} 对应的服务器")
+
     try:
-        async with streamablehttp_client(MCP_SERVER_ADDR) as (read, write, _):
+        async with streamablehttp_client(server_addr) as (read, write, _):
             async with ClientSession(read, write) as session:
                 await session.initialize()
+
+                # 解析工具原始名称
+                tool_name, _ = parse_tool_unique_name(unique_tool_name)
+
                 result = await session.call_tool(tool_name, params or {})
-                logger.info(f"call_mcp_tool_success: {tool_name} -> {result}")
+                logger.info(f"call_mcp_tool_success: {unique_tool_name} -> {result}")
                 return result
 
     except Exception as e:
@@ -211,6 +289,7 @@ def auto_call_mcp_yield(question: str, cfg: dict) -> Generator[str, None, None]:
     使用支持工具调用的LLM自动决策并调用MCP工具（流式版本）
     返回生成器，逐步产生结果
     """
+    logger.info(f"question: {question}, cfg {cfg}")
     # 获取可用的MCP工具
     tools = asyncio.run(async_get_available_tools())
     # 读取LLM配置
@@ -298,6 +377,12 @@ def auto_call_mcp_yield(question: str, cfg: dict) -> Generator[str, None, None]:
                 return
 
             elif finish_reason == "tool_calls":
+                step_response = response_data["choices"][0]["message"]["content"]
+                yield json.dumps({
+                    "type": "status",
+                    "content": step_response,
+                    "iteration": iteration
+                }, ensure_ascii=False)
                 # 如果是 tool_calls，提取并执行所有工具调用
                 tool_calls = extract_tool_calls(response_data)
                 if tool_calls:
@@ -396,8 +481,8 @@ def build_llm_tools(tools):
         llm_tool = {
             "type": "function",
             "function": {
-                "name": tool["name"],
-                "description": tool.get("description", ""),
+                "name": tool["name"],  # 使用唯一名称
+                "description": f"{tool.get('description', '')} [来自服务器: {tool.get('server', '未知')}]",
                 "parameters": parameters
             }
         }
@@ -407,7 +492,7 @@ def build_llm_tools(tools):
 
 def extract_tool_calls(content: dict) -> list[dict] | None:
     """
-    提取多个工具调用信息
+    提取多个工具调用信息，并将工具名称映射到唯一名称
     """
     try:
         if "choices" not in content:
@@ -416,21 +501,35 @@ def extract_tool_calls(content: dict) -> list[dict] | None:
         choice = content["choices"][0]
         if choice.get("finish_reason") != "tool_calls":
             return None
-
         message = choice["message"]
         if "tool_calls" not in message or not message["tool_calls"]:
             return None
-
         tool_calls = []
         for tool_call in message["tool_calls"]:
             function = tool_call["function"]
+            original_name = function["name"]
+            # 查找对应的唯一工具名称
+            unique_name = None
+            for tool in TOOLS_CACHE["tools"]:
+                if tool["original_name"] == original_name:
+                    unique_name = tool["name"]
+                    break
+            if not unique_name:
+                # 如果找不到，尝试刷新缓存
+                asyncio.run(async_get_available_tools(force_refresh=True))
+                for tool in TOOLS_CACHE["tools"]:
+                    if tool["original_name"] == original_name:
+                        unique_name = tool["name"]
+                        break
+            if not unique_name:
+                logger.error(f"无法找到工具 {original_name} 对应的唯一名称")
+                continue
             tool_calls.append({
                 "id": tool_call["id"],
-                "name": function["name"],
+                "name": unique_name,  # 使用唯一名称而不是原始名称
                 "arguments": json.loads(function["arguments"])
             })
         return tool_calls
-
     except (KeyError, IndexError, json.JSONDecodeError) as e:
         logger.error(f"解析工具调用失败: {str(e)}")
         return None
