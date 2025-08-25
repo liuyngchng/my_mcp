@@ -111,10 +111,13 @@ def get_weather_info_by_city(city: str) -> dict:
     }
     return weather_info
 
-@app.resource("file:///path/to/file.txt")
-def read_file(uri: str) -> str:
-    """根据文件路径读取文件内容"""
-    with open(uri.replace("file://", ""), "r") as f:
+@app.resource("file:///path/to/{my_file}")
+def read_file(my_file: str) -> str:
+    """
+    根据文件路径读取文件内容
+    uri = "file:///path/to/file.txt"
+    """
+    with open(my_file.replace("file://", ""), "r") as f:
         return f.read()
 
 @app.prompt()
