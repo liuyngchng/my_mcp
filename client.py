@@ -22,7 +22,7 @@ from sys_init import init_yml_cfg
 logging.config.fileConfig('logging.conf', encoding="utf-8")
 logger = logging.getLogger(__name__)
 
-# 定义多个MCP服务器地址
+# 给出多个可用的 MCP 服务器地址
 MCP_SERVER_ADDR_LIST = [
     "http://localhost:8001/mcp",
 ]
@@ -44,7 +44,7 @@ def get_tool_unique_name(tool_name: str, server_addr: str) -> str:
     return f"{tool_name}@{server_hash}"
 
 
-def parse_tool_unique_name(unique_name: str) -> tuple:
+def parse_tool_unique_name(unique_name: str) -> list[str] | tuple[str, None]:
     """解析工具的唯一名称，返回工具名和服务器地址哈希"""
     if "@" in unique_name:
         return unique_name.split("@", 1)
