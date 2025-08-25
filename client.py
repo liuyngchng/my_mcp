@@ -41,14 +41,12 @@ def get_tool_unique_name(tool_name: str, server_addr: str) -> str:
     """为工具生成唯一名称，避免不同服务器的同名工具冲突"""
     # 使用服务器地址的哈希值作为后缀
     server_hash = hashlib.md5(server_addr.encode()).hexdigest()[:8]
-    return f"{tool_name}::{server_hash}"
+    return f"{tool_name}_{server_hash}"
 
 
-def parse_tool_unique_name(unique_name: str) -> list[str]:
-    """解析工具的唯一名称，返回工具名和服务器地址哈希值"""
-    if "::" in unique_name:
-        return unique_name.split("::", 1)
-    return [unique_name, None]
+def get_tool_call_name(unique_name: str) -> str:
+    """解析工具的唯一名称，返回进行调用的工具名称"""
+    return unique_name.rsplit('_', 1)[0] if '_' in unique_name else unique_name
 
 
 async def async_get_available_tools(force_refresh: bool = False) -> list:
@@ -113,7 +111,7 @@ async def async_call_mcp_tool(unique_tool_name: str, params: dict = None) -> Any
     :param params: 工具参数（字典格式）
     :return: 工具执行返回结果
     """
-    logger.info(f"call_mcp_tool: {unique_tool_name}, params: {params}")
+    logger.info(f"unique_mcp_tool: {unique_tool_name}, params: {params}")
 
     # 查找工具对应的服务器
     server_addr = TOOLS_CACHE["tool_server_map"].get(unique_tool_name)
@@ -123,21 +121,20 @@ async def async_call_mcp_tool(unique_tool_name: str, params: dict = None) -> Any
         server_addr = TOOLS_CACHE["tool_server_map"].get(unique_tool_name)
         if not server_addr:
             raise ValueError(f"未找到工具 {unique_tool_name} 对应的服务器")
-
+    tool_name =''
     try:
         async with streamablehttp_client(server_addr) as (read, write, _):
             async with ClientSession(read, write) as session:
                 await session.initialize()
 
                 # 解析工具原始名称
-                tool_name, _ = parse_tool_unique_name(unique_tool_name)
+                tool_name= get_tool_call_name(unique_tool_name)
 
                 result = await session.call_tool(tool_name, params or {})
-                logger.info(f"call_mcp_tool_success: {unique_tool_name} -> {result}")
+                logger.info(f"call_mcp_tool_success: {tool_name} -> {result}")
                 return result
-
     except Exception as e:
-        logger.exception(f"call_mcp_tool_exception")
+        logger.exception(f"call_mcp_tool_exception_for_tool {tool_name}")
         raise RuntimeError(f"call_mcp_tool_exception: {str(e)}") from e
 
 
