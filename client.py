@@ -41,13 +41,13 @@ def get_tool_unique_name(tool_name: str, server_addr: str) -> str:
     """为工具生成唯一名称，避免不同服务器的同名工具冲突"""
     # 使用服务器地址的哈希值作为后缀
     server_hash = hashlib.md5(server_addr.encode()).hexdigest()[:8]
-    return f"{tool_name}@{server_hash}"
+    return f"{tool_name}::{server_hash}"
 
 
 def parse_tool_unique_name(unique_name: str) -> list[str]:
     """解析工具的唯一名称，返回工具名和服务器地址哈希值"""
-    if "@" in unique_name:
-        return unique_name.split("@", 1)
+    if "::" in unique_name:
+        return unique_name.split("::", 1)
     return [unique_name, None]
 
 
@@ -85,7 +85,6 @@ async def async_get_available_tools(force_refresh: bool = False) -> list:
                         # 添加工具信息
                         all_tools.append({
                             "name": unique_name,  # 使用唯一名称
-                            "original_name": tool.name,  # 保留原始名称
                             "title": tool.title,
                             "description": tool.description,
                             "inputSchema": tool.inputSchema,
@@ -156,7 +155,7 @@ def call_llm_with_retry(api: str, headers: dict, data: dict, cfg:dict, max_retri
     proxies = cfg['api'].get('proxy', None)
     for attempt in range(max_retries):
         try:
-            logger.info(f"第 {attempt + 1} 次尝试调用LLM API, proxies: {proxies}")
+            logger.info(f"第 {attempt + 1} 次尝试调用LLM API, proxies: {proxies}, data: {data}")
             response = requests.post(api, headers=headers, json=data, verify=False, proxies=proxies, timeout=30)
             logger.info(f"llm_response_status {response.status_code}")
 
@@ -481,7 +480,7 @@ def build_llm_tools(tools):
         llm_tool = {
             "type": "function",
             "function": {
-                "name": tool["name"],  # 使用唯一名称
+                "name": tool["name"],
                 "description": f"{tool.get('description', '')} [来自服务器: {tool.get('server', '未知')}]",
                 "parameters": parameters
             }
@@ -492,7 +491,8 @@ def build_llm_tools(tools):
 
 def extract_tool_calls(content: dict) -> list[dict] | None:
     """
-    提取多个工具调用信息，并将工具名称映射到唯一名称
+    提取多个工具调用信息
+    现在LLM返回的tool应该都是全局唯一名称
     """
     try:
         if "choices" not in content:
@@ -507,26 +507,19 @@ def extract_tool_calls(content: dict) -> list[dict] | None:
         tool_calls = []
         for tool_call in message["tool_calls"]:
             function = tool_call["function"]
-            original_name = function["name"]
-            # 查找对应的唯一工具名称
-            unique_name = None
-            for tool in TOOLS_CACHE["tools"]:
-                if tool["original_name"] == original_name:
-                    unique_name = tool["name"]
-                    break
-            if not unique_name:
-                # 如果找不到，尝试刷新缓存
+            tool_name = function["name"]
+
+            # 验证工具是否存在
+            if tool_name not in TOOLS_CACHE["tool_server_map"]:
+                # 如果缓存中没有，尝试刷新缓存
                 asyncio.run(async_get_available_tools(force_refresh=True))
-                for tool in TOOLS_CACHE["tools"]:
-                    if tool["original_name"] == original_name:
-                        unique_name = tool["name"]
-                        break
-            if not unique_name:
-                logger.error(f"无法找到工具 {original_name} 对应的唯一名称")
-                continue
+                if tool_name not in TOOLS_CACHE["tool_server_map"]:
+                    logger.error(f"无法找到工具 {tool_name}")
+                    continue
+
             tool_calls.append({
                 "id": tool_call["id"],
-                "name": unique_name,  # 使用唯一名称而不是原始名称
+                "name": tool_name,
                 "arguments": json.loads(function["arguments"])
             })
         return tool_calls
