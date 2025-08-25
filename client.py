@@ -85,7 +85,7 @@ def call_llm_with_retry(api: str, headers: dict, data: dict, cfg:dict, max_retri
             if response.status_code == 200:
                 return response.json()
             else:
-                logger.warning(f"LLM API 返回非200状态码: {response.status_code}")
+                logger.warning(f"LLM API 返回非200状态码: {response.status_code}, {response.json()}")
                 if attempt < max_retries - 1:
                     time.sleep(2 ** attempt)  # 指数退避
 
@@ -166,6 +166,9 @@ def auto_call_mcp(question: str, cfg: dict) -> str:
                 if tool_calls:
                     # 将工具调用消息添加到历史
                     tool_call_message = response_data["choices"][0]["message"]
+                    logger.info(f"function_call_tag= {tool_call_message['function_call']}")
+                    if not tool_call_message["function_call"] or tool_call_message["function_call"] == "null":
+                        tool_call_message["function_call"] = []
                     messages.append(tool_call_message)
 
                     # 执行所有工具调用并收集结果
@@ -300,6 +303,9 @@ def auto_call_mcp_yield(question: str, cfg: dict) -> Generator[str, None, None]:
                 if tool_calls:
                     # 将工具调用消息添加到历史
                     tool_call_message = response_data["choices"][0]["message"]
+                    logger.info(f"function_call_tag={tool_call_message['function_call']}")
+                    if not tool_call_message["function_call"] or tool_call_message["function_call"] == "null":
+                        tool_call_message["function_call"] = []
                     messages.append(tool_call_message)
 
                     # 发送工具调用信息
