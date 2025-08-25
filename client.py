@@ -44,11 +44,11 @@ def get_tool_unique_name(tool_name: str, server_addr: str) -> str:
     return f"{tool_name}@{server_hash}"
 
 
-def parse_tool_unique_name(unique_name: str) -> list[str] | tuple[str, None]:
-    """解析工具的唯一名称，返回工具名和服务器地址哈希"""
+def parse_tool_unique_name(unique_name: str) -> list[str]:
+    """解析工具的唯一名称，返回工具名和服务器地址哈希值"""
     if "@" in unique_name:
         return unique_name.split("@", 1)
-    return unique_name, None
+    return [unique_name, None]
 
 
 async def async_get_available_tools(force_refresh: bool = False) -> list:
