@@ -104,16 +104,30 @@ async def async_get_available_tools(force_refresh: bool = False) -> list:
     return all_tools
 
 
-async def async_call_mcp_tool(unique_tool_name: str, params: dict = None) -> Any:
+async def async_call_mcp_tool(server_addr: str, call_tool_name: str, params: dict = None) -> Any:
     """
     异步调用 MCP工具，根据工具唯一名称找到对应的服务器
-    :param unique_tool_name: 工具唯一名称（包含服务器哈希）
+    :param server_addr Server addr of the tool
+    :param call_tool_name: 工具调用名称（包含服务器哈希）
     :param params: 工具参数（字典格式）
     :return: 工具执行返回结果
     """
-    logger.info(f"unique_mcp_tool: {unique_tool_name}, params: {params}")
+    logger.info(f"call_mcp_tool: {call_tool_name}@{server_addr}, params: {params}")
+    try:
+        async with streamablehttp_client(server_addr) as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
 
-    # 查找工具对应的服务器
+
+                result = await session.call_tool(call_tool_name, params or {})
+                logger.info(f"call_mcp_tool_success: {call_tool_name}@{server_addr} -> {result}")
+                return result
+    except Exception as e:
+        logger.exception(f"call_mcp_tool_exception_for_tool {call_tool_name}@{server_addr}")
+        raise RuntimeError(f"call_mcp_tool_exception: {str(e)}") from e
+
+
+async def async_get_tool_server_addr(unique_tool_name):
     server_addr = TOOLS_CACHE["tool_server_map"].get(unique_tool_name)
     if not server_addr:
         # 如果缓存中没有，尝试刷新缓存
@@ -121,28 +135,14 @@ async def async_call_mcp_tool(unique_tool_name: str, params: dict = None) -> Any
         server_addr = TOOLS_CACHE["tool_server_map"].get(unique_tool_name)
         if not server_addr:
             raise ValueError(f"未找到工具 {unique_tool_name} 对应的服务器")
-    tool_name =''
-    try:
-        async with streamablehttp_client(server_addr) as (read, write, _):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-
-                # 解析工具原始名称
-                tool_name= get_tool_call_name(unique_tool_name)
-
-                result = await session.call_tool(tool_name, params or {})
-                logger.info(f"call_mcp_tool_success: {tool_name} -> {result}")
-                return result
-    except Exception as e:
-        logger.exception(f"call_mcp_tool_exception_for_tool {tool_name}")
-        raise RuntimeError(f"call_mcp_tool_exception: {str(e)}") from e
+    return server_addr
 
 
-def call_mcp_tool(tool_name: str, params: dict) -> Any:
+def call_mcp_tool(server_addr:str, call_tool_name: str, params: dict) -> Any:
     """
-    同步调用MCP工具（封装异步调用），便于在同步代码中使用
+    将异步调用转换为同步调用， 同步调用MCP工具，便于在同步代码中使用
     """
-    return asyncio.run(async_call_mcp_tool(tool_name, params))
+    return asyncio.run(async_call_mcp_tool(server_addr, call_tool_name, params))
 
 
 def call_llm_with_retry(api: str, headers: dict, data: dict, cfg:dict, max_retries: int = 3) -> dict:
@@ -247,11 +247,12 @@ def auto_call_mcp(question: str, cfg: dict) -> str:
 
                     # 执行所有工具调用并收集结果
                     for tool_call in tool_calls:
+                        # 查找工具对应的服务器
+                        server_addr = asyncio.run(async_get_tool_server_addr(tool_call['name']))
+                        # 获取工具调用名称
+                        call_tool_name = get_tool_call_name(tool_call['name'])
                         # 调用MCP工具
-                        tool_result = call_mcp_tool(
-                            tool_name=tool_call["name"],
-                            params=tool_call["arguments"]
-                        )
+                        tool_result = call_mcp_tool(server_addr, call_tool_name, tool_call["arguments"])
 
                         # 添加工具执行结果到消息历史
                         tool_result_content = str(tool_result.content)
@@ -399,26 +400,27 @@ def auto_call_mcp_yield(question: str, cfg: dict) -> Generator[str, None, None]:
 
                     # 执行所有工具调用并收集结果
                     for tool_call in tool_calls:
+                        # 查找工具对应的服务器
+                        server_addr = asyncio.run(async_get_tool_server_addr(tool_call['name']))
+                        # 获取工具调用名称
+                        call_tool_name = get_tool_call_name(tool_call['name'])
                         # 发送工具执行开始信息
                         yield json.dumps({
                             "type": "tool_start",
-                            "content": f"正在执行工具: {tool_call['name']}, {json.dumps(tool_call["arguments"], ensure_ascii=False)}",
+                            "content": f"正在执行工具: {call_tool_name}@{server_addr}, {json.dumps(tool_call["arguments"], ensure_ascii=False)}",
                             "tool": tool_call["name"],
                             "iteration": iteration
                         }, ensure_ascii=False)
 
                         # 调用MCP工具
-                        tool_result = call_mcp_tool(
-                            tool_name=tool_call["name"],
-                            params=tool_call["arguments"]
-                        )
+                        tool_result = call_mcp_tool(server_addr, call_tool_name, tool_call["arguments"])
 
                         # 发送工具执行结果
                         tool_result_content = str(tool_result.content)
                         yield json.dumps({
                             "type": "tool_result",
-                            "content": f"工具 {tool_call['name']} 执行完成",
-                            "tool": tool_call["name"],
+                            "content": f"工具 {call_tool_name}@{server_addr} 执行完成",
+                            "tool": f"{call_tool_name}@{server_addr}",
                             "result": tool_result_content[:200] + "..." if len(
                                 tool_result_content) > 200 else tool_result_content,
                             "iteration": iteration
