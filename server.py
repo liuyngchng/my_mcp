@@ -80,15 +80,6 @@ def get_vocation_city_list() -> list:
         "成都",
         "重庆",
         "西安",
-        "杭州",
-        "武汉",
-        "南京",
-        "厦门",
-        "青岛",
-        "大连",
-        "天津",
-        "济南",
-        "苏州",
         ]
     return city_list
 
@@ -127,9 +118,6 @@ def vacation_plan_prompt(city: str) -> str:
     """生成度假计划提示模板"""
     return f"请为{city}设计一个3天的度假计划，包含景点、餐饮和住宿建议"
 
-@app.add_tool()
-def add_tool():
-    logger.info("add_tool")
 
 if __name__ == "__main__":
     logger.info("start mcp server (backend only)")
