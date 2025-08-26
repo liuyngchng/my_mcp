@@ -6,10 +6,10 @@ pip install mcp[cli]
 
 FastMCP quickstart example.
 """
-
 import os
 import logging.config
 from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.tools import ToolManager
 from mcp.types import Request
 from starlette.responses import JSONResponse
 
@@ -23,6 +23,8 @@ async def health_check(request: Request):
     """健康检查端点"""
     logger.info(f"trigger_health_check, {request}")
     return JSONResponse({"status": "ok"})
+
+
 
 @app.tool()
 def get_desktop_files() -> list:
@@ -124,6 +126,10 @@ def read_file(my_file: str) -> str:
 def vacation_plan_prompt(city: str) -> str:
     """生成度假计划提示模板"""
     return f"请为{city}设计一个3天的度假计划，包含景点、餐饮和住宿建议"
+
+@app.add_tool()
+def add_tool():
+    logger.info("add_tool")
 
 if __name__ == "__main__":
     logger.info("start mcp server (backend only)")
