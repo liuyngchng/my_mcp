@@ -68,9 +68,7 @@ def get_airline_info_by_city(city: str) -> dict:
 
 @app.tool()
 def get_vocation_city_list() -> list:
-    """
-    获取适合度假的城市列表
-    """
+    """获取适合度假的城市列表"""
     logger.info("trigger_get_vocation_city_list")
     city_list = [
         "北京",

@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 # 给出多个可用的 MCP 服务器地址
 MCP_SERVER_ADDR_LIST = [
     "http://localhost:19001/mcp",
+    "http://localhost:19002/mcp",
 ]
 
 # 全局缓存
@@ -363,6 +364,8 @@ def auto_call_mcp_yield(question: str, cfg: dict) -> Generator[str, None, None]:
                             (not tool_call_message["function_call"] or tool_call_message["function_call"] == "null")):
                         tool_call_message["function_call"] = []
                         logger.info(f"function_call_tag={tool_call_message['function_call']}")
+                    if "content" in tool_call_message and (not tool_call_message["content"] or tool_call_message["content"] == "null"):
+                        tool_call_message["content"] = ""
                     messages.append(tool_call_message)
 
                     # 发送工具调用信息
@@ -455,7 +458,7 @@ def build_llm_tools(tools):
             "type": "function",
             "function": {
                 "name": tool["name"],
-                "description": f"{tool.get('description', '')} [来自服务器: {tool.get('server', '未知')}]",
+                "description": tool.get('description', ''),
                 "parameters": parameters
             }
         }

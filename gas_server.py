@@ -13,7 +13,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import Request
 from starlette.responses import JSONResponse
 
-app = FastMCP(port=8001, stateless_http=True, json_response=True)  # 初始化 MCP 服务实例
+app = FastMCP(port=19002, stateless_http=True, json_response=True)  # 初始化 MCP 服务实例
 logging.config.fileConfig('logging.conf', encoding="utf-8")
 logger = logging.getLogger(__name__)
 
@@ -116,7 +116,8 @@ def get_gas_price(city: str) -> dict:
     logger.info(f"trigger_get_gas_price, {city}")
     return {
         "city": city,
-        "price": 10000,
+        "price": 2.36,
+        "unit":"元/立方米"
     }
 
 @app.tool()
