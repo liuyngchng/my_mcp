@@ -12,10 +12,11 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import Request
 from starlette.responses import JSONResponse
 
-app = FastMCP(port=8001, stateless_http=True, json_response=True)  # 初始化 MCP 服务实例
+from tools import calculate_bmi
+
+app = FastMCP(port=19001, stateless_http=True, json_response=True, host='0.0.0.0')
 logging.config.fileConfig('logging.conf', encoding="utf-8")
 logger = logging.getLogger(__name__)
-
 
 @app.custom_route("/health", methods=["GET"])
 async def health_check(request: Request):
@@ -117,8 +118,17 @@ def vacation_plan_prompt(city: str) -> str:
     """生成度假计划提示模板"""
     return f"请为{city}设计一个3天的度假计划，包含景点、餐饮和住宿建议"
 
+def add_your_tools():
+    # 使用 add_tool 方法添加工具（而不是使用装饰器）
+    app.add_tool(
+        calculate_bmi,
+        name="calculate_bmi",
+        description="根据体重(kg)和身高(m)计算身体质量指数(BMI)并返回分类",
+        structured_output=False
+    )
 
 if __name__ == "__main__":
+    add_your_tools()
     logger.info("start mcp server (backend only)")
     # 通信协议：transport = 'stdio', 表示使用标准输入输出，也可替换为 HTTP 或 WebSocket
     app.run(transport='streamable-http')  # 添加 frontend=False

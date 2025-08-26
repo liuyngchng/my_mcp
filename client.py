@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # 给出多个可用的 MCP 服务器地址
 MCP_SERVER_ADDR_LIST = [
-    "http://localhost:8001/mcp",
+    "http://localhost:19001/mcp",
 ]
 
 # 全局缓存

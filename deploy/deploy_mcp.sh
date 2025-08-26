@@ -7,6 +7,7 @@ docker run -dit --name ${app}  \
   --security-opt seccomp=unconfined \
   -v /data/my_mcp:/opt/app \
   -p 19005:19000 \
+  -p 19006:19001 \
   -e MODULE_NAME=${app} \
   llm_mcp:1.0
 
