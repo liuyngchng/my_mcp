@@ -9,7 +9,6 @@ FastMCP quickstart example.
 import os
 import logging.config
 from mcp.server.fastmcp import FastMCP
-from mcp.server.fastmcp.tools import ToolManager
 from mcp.types import Request
 from starlette.responses import JSONResponse
 
