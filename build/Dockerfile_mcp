@@ -6,7 +6,7 @@ ARG PROXY=""
 #ARG PROXY=" -i https://pypi.tuna.tsinghua.edu.cn/simple"
 # 确保 当前目录下的目录 ./llm_py_env 存在，且whl离线包与当前python的版本完全一致, 离线安装时使用
 COPY ./llm_py_env /tmp/whl
-RUN ./llm_py_env/bin/pip install --no-cache-dir --no-index --find-links=/tmp/whl gunicorn \
+RUN ./llm_py_env/bin/pip install --no-cache-dir --no-index --find-links=/tmp/whl gunicorn uvicorn uv \
     mcp mcp[cli] concurrent_log_handler pyyaml flask requests $PROXY && \
     rm -rf /tmp/whl && \
     rm -rf ~/.cache/pip

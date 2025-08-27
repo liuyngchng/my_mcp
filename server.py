@@ -11,10 +11,10 @@ import logging.config
 from mcp.server.fastmcp import FastMCP
 from mcp.types import Request
 from starlette.responses import JSONResponse
-
 from tools import calculate_bmi
 
 app = FastMCP(port=19001, stateless_http=True, json_response=True, host='0.0.0.0')
+
 logging.config.fileConfig('logging.conf', encoding="utf-8")
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,6 @@ async def health_check(request: Request):
     """健康检查端点"""
     logger.info(f"trigger_health_check, {request}")
     return JSONResponse({"status": "ok"})
-
 
 
 @app.tool()

@@ -7,7 +7,6 @@ Run from the repository root:
 
 import asyncio
 from datetime import datetime, timedelta
-import hashlib
 import json
 import logging.config
 import time
@@ -66,7 +65,7 @@ async def async_get_available_tools(force_refresh: bool = False) -> list:
 
     for index, server_addr in enumerate(MCP_SERVER_ADDR_LIST):
         try:
-            async with streamablehttp_client(server_addr) as (read, write, _):
+            async with streamablehttp_client(url=server_addr, timeout=30, verify=False) as (read, write, _):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
                     tools_resp = await session.list_tools()
@@ -107,7 +106,7 @@ async def async_call_mcp_tool(server_addr: str, call_tool_name: str, params: dic
     """
     logger.info(f"call_mcp_tool: {call_tool_name}@{server_addr}, params: {params}")
     try:
-        async with streamablehttp_client(server_addr) as (read, write, _):
+        async with streamablehttp_client(url=server_addr, timeout=30, verify=False) as (read, write, _):
             async with ClientSession(read, write) as session:
                 await session.initialize()
 
