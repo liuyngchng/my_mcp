@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+for test purpose only
 pip install mcp
 pip install mcp[cli]
 
