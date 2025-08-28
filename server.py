@@ -14,7 +14,6 @@ from starlette.responses import JSONResponse
 from tools import calculate_bmi
 
 app = FastMCP(port=19001, stateless_http=True, json_response=True, host='0.0.0.0')
-
 logging.config.fileConfig('logging.conf', encoding="utf-8")
 logger = logging.getLogger(__name__)
 
@@ -128,4 +127,15 @@ if __name__ == "__main__":
     add_your_tools()
     logger.info("start mcp server (backend only)")
     # 通信协议：transport = 'stdio', 表示使用标准输入输出，也可替换为 HTTP 或 WebSocket
-    app.run(transport='streamable-http')  # 添加 frontend=False
+    # app.run(transport='streamable-http')  # 添加 frontend=False
+    starlette_app = app.streamable_http_app()
+    import uvicorn
+
+    uvicorn.run(
+        starlette_app,
+        host="0.0.0.0",
+        port=19001,
+        ssl_keyfile="./cert/srv.key",
+        ssl_certfile="./cert/srv.crt",
+        log_level="info"
+    )
