@@ -12,6 +12,7 @@ import json
 import logging.config
 import time
 from typing import Any, Generator
+from urllib.parse import urlparse
 
 import httpx
 import requests
@@ -39,9 +40,49 @@ TOOLS_CACHE = {
 # 缓存有效期（分钟）
 CACHE_EXPIRY_MINUTES = 30
 
-def create_custom_http_client(**kwargs):
-    """创建自定义的 HTTP 客户端，禁用 SSL 验证"""
-    return httpx.AsyncClient(verify=False, **kwargs)
+
+# 配置选项
+class MCPClientConfig:
+    """MCP 客户端配置"""
+
+    def __init__(self,
+            verify_https: bool = True,
+            http_timeout: int = 30,
+            sse_timeout: int = 300,
+            max_retries: int = 3):
+        self.verify_https = verify_https  # 是否验证 HTTPS 证书
+        self.http_timeout = http_timeout  # HTTP 超时时间（秒）
+        self.sse_timeout = sse_timeout  # SSE 超时时间（秒）
+        self.max_retries = max_retries  # 最大重试次数
+
+# 使用配置创建客户端工厂
+def create_http_client_factory(config: MCPClientConfig):
+    """创建可配置的 HTTP 客户端工厂"""
+
+    def factory(**kwargs):
+        url = kwargs.pop('url', None)
+        if url:
+            parsed_url = urlparse(url)
+            if parsed_url.scheme == 'https':
+                verify = config.verify_https
+            else:
+                verify = False
+        else:
+            verify = config.verify_https
+
+        return httpx.AsyncClient(
+            verify=verify,
+            **kwargs
+        )
+
+    return factory
+
+client_config = MCPClientConfig(
+    verify_https=False,  # 开发环境禁用 SSL 验证
+    http_timeout=30,
+    sse_timeout=300,
+    max_retries=3
+)
 
 def get_tool_unique_name(server_index: int, tool_name: str) -> str:
     """为工具生成唯一名称，避免不同服务器的同名工具冲突"""
@@ -71,7 +112,7 @@ async def async_get_available_tools(force_refresh: bool = False) -> list:
 
     for index, server_addr in enumerate(MCP_SERVER_ADDR_LIST):
         try:
-            async with streamablehttp_client(url=server_addr, timeout=30,  httpx_client_factory=create_custom_http_client) as (read, write, _):
+            async with streamablehttp_client(url=server_addr, timeout=30, httpx_client_factory=create_http_client_factory(client_config)) as (read, write, _):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
                     tools_resp = await session.list_tools()
@@ -90,7 +131,7 @@ async def async_get_available_tools(force_refresh: bool = False) -> list:
                             "server": server_addr
                         })
         except Exception as e:
-            logger.error(f"连接服务器 {server_addr} 失败: {str(e)}")
+            logger.exception(f"连接服务器 {server_addr} 失败")
             continue
 
     # 更新缓存
@@ -112,7 +153,7 @@ async def async_call_mcp_tool(server_addr: str, call_tool_name: str, params: dic
     """
     logger.info(f"call_mcp_tool: {call_tool_name}@{server_addr}, params: {params}")
     try:
-        async with streamablehttp_client(url=server_addr, timeout=30,  httpx_client_factory=create_custom_http_client) as (read, write, _):
+        async with streamablehttp_client(url=server_addr, timeout=30, httpx_client_factory=create_http_client_factory(client_config)) as (read, write, _):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.call_tool(call_tool_name, params or {})

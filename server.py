@@ -123,15 +123,9 @@ def add_your_tools():
         structured_output=False
     )
 
-if __name__ == "__main__":
-    add_your_tools()
-    logger.info("start mcp server (backend only)")
-    # 通信协议：transport = 'stdio', 表示使用标准输入输出，也可替换为 HTTP 或 WebSocket
-    # start a http server
-    # app.run(transport='streamable-http')  # 添加 frontend=False
+def start_https_server():
     starlette_app = app.streamable_http_app()
     import uvicorn
-    # start a https server
     uvicorn.run(
         starlette_app,
         host="0.0.0.0",
@@ -140,3 +134,14 @@ if __name__ == "__main__":
         ssl_certfile="./cert/srv.crt",
         log_level="info"
     )
+
+def start_http_server():
+    app.run(transport='streamable-http')  # 添加 frontend=False
+
+if __name__ == "__main__":
+    add_your_tools()
+    logger.info("start mcp server (backend only)")
+    start_https_server()
+
+
+
