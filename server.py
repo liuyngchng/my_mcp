@@ -127,10 +127,11 @@ if __name__ == "__main__":
     add_your_tools()
     logger.info("start mcp server (backend only)")
     # 通信协议：transport = 'stdio', 表示使用标准输入输出，也可替换为 HTTP 或 WebSocket
+    # start a http server
     # app.run(transport='streamable-http')  # 添加 frontend=False
     starlette_app = app.streamable_http_app()
     import uvicorn
-
+    # start a https server
     uvicorn.run(
         starlette_app,
         host="0.0.0.0",

@@ -6,12 +6,14 @@ Run from the repository root:
 """
 
 import asyncio
+import ssl
 from datetime import datetime, timedelta
 import json
 import logging.config
 import time
 from typing import Any, Generator
 
+import httpx
 import requests
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
@@ -36,6 +38,10 @@ TOOLS_CACHE = {
 
 # 缓存有效期（分钟）
 CACHE_EXPIRY_MINUTES = 30
+
+def create_custom_http_client(**kwargs):
+    """创建自定义的 HTTP 客户端，禁用 SSL 验证"""
+    return httpx.AsyncClient(verify=False, **kwargs)
 
 def get_tool_unique_name(server_index: int, tool_name: str) -> str:
     """为工具生成唯一名称，避免不同服务器的同名工具冲突"""
@@ -65,7 +71,7 @@ async def async_get_available_tools(force_refresh: bool = False) -> list:
 
     for index, server_addr in enumerate(MCP_SERVER_ADDR_LIST):
         try:
-            async with streamablehttp_client(url=server_addr, timeout=30, verify=False) as (read, write, _):
+            async with streamablehttp_client(url=server_addr, timeout=30,  httpx_client_factory=create_custom_http_client) as (read, write, _):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
                     tools_resp = await session.list_tools()
@@ -106,11 +112,9 @@ async def async_call_mcp_tool(server_addr: str, call_tool_name: str, params: dic
     """
     logger.info(f"call_mcp_tool: {call_tool_name}@{server_addr}, params: {params}")
     try:
-        async with streamablehttp_client(url=server_addr, timeout=30, verify=False) as (read, write, _):
+        async with streamablehttp_client(url=server_addr, timeout=30,  httpx_client_factory=create_custom_http_client) as (read, write, _):
             async with ClientSession(read, write) as session:
                 await session.initialize()
-
-
                 result = await session.call_tool(call_tool_name, params or {})
                 logger.info(f"call_mcp_tool_success: {call_tool_name}@{server_addr} -> {result}")
                 return result
