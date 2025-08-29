@@ -12,7 +12,7 @@ import logging.config
 from mcp.server.fastmcp import FastMCP
 from mcp.types import Request
 from starlette.responses import JSONResponse
-from tools import calculate_bmi
+from tools.demo import calculate_bmi as calculate_bmi_tool_from_demo
 
 app = FastMCP(port=19001, stateless_http=True, json_response=True, host='0.0.0.0')
 logging.config.fileConfig('logging.conf', encoding="utf-8")
@@ -135,9 +135,8 @@ def vacation_plan_prompt(city: str) -> str:
     return f"请为{city}设计一个3天的度假计划，包含景点、餐饮和住宿建议"
 
 def add_your_tools():
-    # 使用 add_tool 方法添加工具（而不是使用装饰器）
     app.add_tool(
-        calculate_bmi,
+        calculate_bmi_tool_from_demo,
         name="calculate_bmi",
         title="计算BMI",
         description="根据体重(kg)和身高(m)计算身体质量指数(BMI)并返回分类",

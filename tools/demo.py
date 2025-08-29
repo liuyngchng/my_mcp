@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 def calculate_bmi(weight_kg: float, height_m: float) -> dict:
     """计算身体质量指数(BMI)"""
