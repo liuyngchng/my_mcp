@@ -140,7 +140,7 @@ def add_your_tools():
         name="calculate_bmi",
         title="计算BMI",
         description="根据体重(kg)和身高(m)计算身体质量指数(BMI)并返回分类",
-        structured_output=False
+        structured_output=True
     )
 
 def start_https_server():

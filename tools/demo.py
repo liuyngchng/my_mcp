@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-def calculate_bmi(weight_kg: float, height_m: float) -> dict:
+from pydantic import BaseModel
+
+class BMIResult(BaseModel):
+    bmi: float
+    category: str
+    weight_kg: float
+    height_m: float
+
+def calculate_bmi(weight_kg: float, height_m: float) -> BMIResult:
     """计算身体质量指数(BMI)"""
     bmi = weight_kg / (height_m ** 2)
 
@@ -14,9 +22,10 @@ def calculate_bmi(weight_kg: float, height_m: float) -> dict:
     else:
         category = "肥胖"
 
-    return {
-        "bmi": round(bmi, 2),
-        "category": category,
-        "weight_kg": weight_kg,
-        "height_m": height_m
-    }
+    bmi_result = BMIResult(
+        bmi=round(bmi, 2),
+        category=category,
+        weight_kg=weight_kg,
+        height_m=height_m
+    )
+    return bmi_result
