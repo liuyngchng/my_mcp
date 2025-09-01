@@ -1,10 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import json
+
+from utils import post_with_retry
+import logging.config
+
+logger = logging.getLogger(__name__)
 
 
 def get_table_schema(schema_name: str, table_name: str) -> list:
     """获取目前 schema_name 中表名称为  table_name 的 schema， 输出为 json 格式"""
     table_schema = []
+    response_data = post_with_retry(uri="your_api_uri", headers={}, data={}, proxies=None)
+    logger.info(f"llm_response_data: {json.dumps(response_data, indent=2, ensure_ascii=False)}")
+    if "error" in response_data:
+        logger.error(f"request API 返回错误: {response_data['error']}")
+        return []
     return table_schema
 
 
