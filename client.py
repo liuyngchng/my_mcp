@@ -135,11 +135,13 @@ async def async_get_available_tools(force_refresh: bool = False) -> list:
             continue
 
     # 更新缓存
-    TOOLS_CACHE["tools"] = all_tools
-    TOOLS_CACHE["tool_server_map"] = tool_server_map
-    TOOLS_CACHE["last_updated"] = current_time
-
-    logger.info(f"总共获取到 {len(all_tools)} 个工具，已缓存， {TOOLS_CACHE}")
+    if all_tools:
+        TOOLS_CACHE["tools"] = all_tools
+        TOOLS_CACHE["tool_server_map"] = tool_server_map
+        TOOLS_CACHE["last_updated"] = current_time
+        logger.info(f"总共获取到 {len(all_tools)} 个工具，已缓存， {TOOLS_CACHE}")
+    else:
+        logger.info(f"未获取到任何工具，缓存未更新")
     return all_tools
 
 
@@ -219,6 +221,8 @@ def auto_call_mcp(question: str, cfg: dict) -> str:
     """
     # 获取可用的MCP工具
     tools = asyncio.run(async_get_available_tools())
+    if not tools:
+        raise ValueError("没有可用的MCP工具")
     # 读取LLM配置
     api = f"{cfg['api']['llm_api_uri']}/chat/completions"
     token = cfg["api"]["llm_api_key"]
@@ -319,6 +323,13 @@ def auto_call_mcp_yield(question: str, cfg: dict) -> Generator[str, None, None]:
     """
     logger.info(f"question: {question}, cfg {cfg}")
     mcp_tools = asyncio.run(async_get_available_tools())
+    if not mcp_tools:
+        yield json.dumps({
+            "type": "status",
+            "content": f"当前没有可用的MCP工具, 请检查 MCP 服务是否正常运行",
+            "iteration": 0
+        }, ensure_ascii=False)
+        raise ValueError("没有可用的MCP工具")
     api = f"{cfg['api']['llm_api_uri']}/chat/completions"
     token = cfg["api"]["llm_api_key"]
     model_name = cfg["api"]["llm_model_name"]
