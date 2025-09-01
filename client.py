@@ -184,21 +184,21 @@ def call_mcp_tool(server_addr:str, call_tool_name: str, params: dict) -> Any:
     return asyncio.run(async_call_mcp_tool(server_addr, call_tool_name, params))
 
 
-def call_llm_with_retry(api: str, headers: dict, data: dict, cfg:dict, max_retries: int = 3) -> dict:
+def post_with_retry(uri: str, headers: dict, data: dict, proxies: str | None, max_retries: int = 3) -> dict:
     """
     带重试机制的LLM调用
     """
-    proxies = cfg['api'].get('proxy', None)
+
     for attempt in range(max_retries):
         try:
-            logger.info(f"第 {attempt + 1} 次尝试调用LLM API, proxies: {proxies}, data: {data}")
-            response = requests.post(api, headers=headers, json=data, verify=False, proxies=proxies, timeout=30)
+            logger.info(f"第 {attempt + 1} 次尝试调用LLM API URI, proxies: {proxies}, data: {data}")
+            response = requests.post(uri, headers=headers, json=data, verify=False, proxies=proxies, timeout=30)
             logger.info(f"llm_response_status {response.status_code}")
 
             if response.status_code == 200:
                 return response.json()
             else:
-                logger.warning(f"LLM API 返回非200状态码: {response.status_code}, {response.json()}")
+                logger.warning(f"LLM API URI 返回非200状态码: {response.status_code}, {response.json()}")
                 if attempt < max_retries - 1:
                     time.sleep(2 ** attempt)  # 指数退避
 
@@ -259,9 +259,20 @@ def auto_call_mcp(question: str, cfg: dict) -> str:
             header_str = ""
             for k, v in headers.items():
                 header_str += f' -H "{k}: {v}" '
+            # proxies= {"http": "http://a.b.c:8080", "https": "http://a.b.c:8080"}
+            proxies = cfg['api'].get('proxy', None)
+            if proxies:
+                curl_proxy = f"--proxy {proxies.get('http', proxies.get('https', None))}"
+            else:
+                curl_proxy = "--noproxy '*'"
+            if 'https' in api:
+                https_option = '-k --tlsv1'
+            else:
+                https_option = ''
             logger.info(
-                f"curl -ks --noproxy '*' -X POST {header_str} -d '{json.dumps(data, ensure_ascii=False)}' '{api}'")
-            response_data = call_llm_with_retry(api, headers, data, cfg)
+                f"curl -s {curl_proxy} -w'\\n' {https_option} -X POST {header_str} -d '{json.dumps(data, ensure_ascii=False)}' '{api}' | jq"
+            )
+            response_data = post_with_retry(api, headers, data, proxies)
             logger.info(f"llm_response_data: {json.dumps(response_data, indent=2, ensure_ascii=False)}")
             if "error" in response_data:
                 logger.error(f"LLM API 返回错误: {response_data['error']}")
@@ -373,10 +384,20 @@ def auto_call_mcp_yield(question: str, cfg: dict) -> Generator[str, None, None]:
             header_str = ""
             for k, v in headers.items():
                 header_str += f' -H "{k}: {v}" '
+            # proxies= {"http": "http://a.b.c:8080", "https": "http://a.b.c:8080"}
+            proxies = cfg['api'].get('proxy', None)
+            if proxies:
+                curl_proxy = f"--proxy {proxies.get('http', proxies.get('https', None))}"
+            else:
+                curl_proxy = "--noproxy '*'"
+            if 'https' in api:
+                https_option = '-k --tlsv1'
+            else:
+                https_option = ''
             logger.info(
-                f"curl -ks --noproxy '*' -w'\\n' --tlsv1 -X POST {header_str} -d '{json.dumps(data, ensure_ascii=False)}' '{api}' | jq")
-
-            response_data = call_llm_with_retry(api, headers, data, cfg)
+                f"curl -s {curl_proxy} -w'\\n' {https_option} -X POST {header_str} -d '{json.dumps(data, ensure_ascii=False)}' '{api}' | jq"
+            )
+            response_data = post_with_retry(api, headers, data, proxies)
             logger.info(f"llm_response_data: {json.dumps(response_data, indent=2, ensure_ascii=False)}")
 
             if "error" in response_data:

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+
+
 def get_table_schema(schema_name: str, table_name: str) -> list:
     """获取目前 schema_name 中表名称为  table_name 的 schema， 输出为 json 格式"""
     table_schema = []
