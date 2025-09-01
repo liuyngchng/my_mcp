@@ -2,11 +2,26 @@
 # -*- coding: utf-8 -*-
 import json
 
+from pydantic import BaseModel
 from utils import post_with_retry
+
 import logging.config
 
 logger = logging.getLogger(__name__)
 
+class SchemaResult(BaseModel):
+    schema_name: str
+    table_name: str
+    table_schema: list
+
+class TableInfo(BaseModel):
+    table_name: str
+    table_name_desc: str
+
+def get_table_list() -> list[TableInfo]:
+    """获取数据库中所有表的信息"""
+    table_list = []
+    return table_list
 
 def get_table_schema(schema_name: str, table_name: str) -> list:
     """获取目前 schema_name 中表名称为  table_name 的 schema， 输出为 json 格式"""

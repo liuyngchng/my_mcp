@@ -12,6 +12,8 @@ import logging.config
 from mcp.server.fastmcp import FastMCP
 from mcp.types import Request
 from starlette.responses import JSONResponse
+
+from tools.db_query import get_table_list as get_table_list_tool_from_db_query
 from tools.demo import calculate_bmi as calculate_bmi_tool_from_demo
 
 app = FastMCP(port=19001, stateless_http=True, json_response=True, host='0.0.0.0')
@@ -140,6 +142,13 @@ def add_your_tools():
         name="calculate_bmi",
         title="计算BMI",
         description="根据体重(kg)和身高(m)计算身体质量指数(BMI)并返回分类",
+        structured_output=True
+    )
+    app.add_tool(
+        get_table_list_tool_from_db_query,
+        name="get_table_list",
+        title="获取数据库中的表列表",
+        description="获取数据库中的表列表，包含表的名称和表的描述",
         structured_output=True
     )
 
