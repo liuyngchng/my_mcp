@@ -31,6 +31,7 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             overflow: hidden;
             padding: 30px;
+            position: relative;
         }
 
         header {
@@ -167,19 +168,38 @@
 
         .loading {
             display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             text-align: center;
-            margin: 15px 0;
-            padding: 15px;
+            padding: 20px 30px;
             background: #f0f4ff;
             border-radius: 8px;
             border: 1px solid #4b6cb7;
             color: #2c3e50;
             font-weight: 500;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 80%;
+            max-width: 300px;
         }
 
         .loading i {
             margin-right: 10px;
             color: #4b6cb7;
+        }
+
+        .loading-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.2);
+            z-index: 99;
+            border-radius: 16px;
         }
 
         .error {
@@ -248,6 +268,11 @@
             .btn {
                 width: 100%;
             }
+
+            .loading {
+                width: 90%;
+                padding: 15px 20px;
+            }
         }
     </style>
 </head>
@@ -274,9 +299,7 @@
                 </button>
             </div>
 
-            <div id="loading" class="loading">
-                <i class="fas fa-sync-alt fa-spin"></i>处理中，请稍候...
-            </div>
+
         </div>
 
         <div class="form-group">
@@ -284,6 +307,10 @@
             <div id="result-area" class="result-area">
                 <p style="color: #777; text-align: center;">结果将显示在这里...</p>
             </div>
+        </div>
+        <div id="loading-overlay" class="loading-overlay"></div>
+        <div id="loading" class="loading">
+            <i class="fas fa-sync-alt fa-spin"></i>处理中，请稍候...
         </div>
     </div>
 
@@ -294,6 +321,7 @@
             const question = document.getElementById('question-input').value.trim();
             const resultArea = document.getElementById('result-area');
             const loading = document.getElementById('loading');
+            const loadingOverlay = document.getElementById('loading-overlay');
             const submitBtn = document.getElementById('submit-btn');
             const streamToggle = document.getElementById('stream-toggle').checked;
 
@@ -304,7 +332,10 @@
 
             // 清除之前的结果
             resultArea.innerHTML = '';
+
+            // 显示加载动画和遮罩
             loading.style.display = 'block';
+            loadingOverlay.style.display = 'block';
             submitBtn.disabled = true;
 
             // 如果已有进行中的请求，取消它
@@ -315,14 +346,14 @@
 
             if (streamToggle) {
                 // 使用流式响应
-                useStreamResponse(question, resultArea, loading, submitBtn, abortController.signal);
+                useStreamResponse(question, resultArea, loading, loadingOverlay, submitBtn, abortController.signal);
             } else {
                 // 使用普通响应
-                useNormalResponse(question, resultArea, loading, submitBtn);
+                useNormalResponse(question, resultArea, loading, loadingOverlay, submitBtn);
             }
         }
 
-        function useStreamResponse(question, resultArea, loading, submitBtn, signal) {
+        function useStreamResponse(question, resultArea, loading, loadingOverlay, submitBtn, signal) {
             // 使用fetch API发送POST请求
             fetch('/api/query', {
                 method: 'POST',
@@ -349,7 +380,9 @@
                 function read() {
                     return reader.read().then(({ value, done }) => {
                         if (done) {
+                            // 隐藏加载动画和遮罩
                             loading.style.display = 'none';
+                            loadingOverlay.style.display = 'none';
                             submitBtn.disabled = false;
                             return;
                         }
@@ -366,7 +399,9 @@
                                 const data = line.substring(6); // 去掉 "data: " 前缀
 
                                 if (data === '[DONE]') {
+                                    // 隐藏加载动画和遮罩
                                     loading.style.display = 'none';
+                                    loadingOverlay.style.display = 'none';
                                     submitBtn.disabled = false;
                                     return;
                                 }
@@ -416,13 +451,16 @@
                 } else {
                     console.error('请求失败:', error);
                     resultArea.innerHTML += `<div class="error">请求失败: ${error.message}</div>`;
-                    loading.style.display = 'none';
-                    submitBtn.disabled = false;
                 }
+
+                // 隐藏加载动画和遮罩
+                loading.style.display = 'none';
+                loadingOverlay.style.display = 'none';
+                submitBtn.disabled = false;
             });
         }
 
-        function useNormalResponse(question, resultArea, loading, submitBtn) {
+        function useNormalResponse(question, resultArea, loading, loadingOverlay, submitBtn) {
             // 发送请求到后端
             fetch('/api/query', {
                 method: 'POST',
@@ -458,7 +496,9 @@
                 `;
             })
             .finally(() => {
+                // 隐藏加载动画和遮罩
                 loading.style.display = 'none';
+                loadingOverlay.style.display = 'none';
                 submitBtn.disabled = false;
             });
         }
@@ -476,6 +516,7 @@
             if (e.key === 'Escape' && abortController) {
                 abortController.abort();
                 document.getElementById('loading').style.display = 'none';
+                document.getElementById('loading-overlay').style.display = 'none';
                 document.getElementById('submit-btn').disabled = false;
             }
         });
