@@ -6,16 +6,31 @@ from pydantic import BaseModel
 
 import utils
 from sys_init import init_yml_cfg
-from utils import post_with_retry
 
 import logging.config
 
+logging.config.fileConfig('logging.conf', encoding="utf-8")
 logger = logging.getLogger(__name__)
+
 db_cfg = init_yml_cfg()['api']
+
+MCP_TOOLS = {}
+
+def mcp_tool(title, description):
+    """装饰器标记函数为MCP工具"""
+    def decorator(func):
+        MCP_TOOLS[func.__name__] = {
+            'func': func,
+            'title': title,
+            'description': description
+        }
+        return func
+    return decorator
 
 class DbInfo(BaseModel):
     name: str
     description: str
+    dialect: str
 
 class TableInfo(BaseModel):
     name: str
@@ -37,28 +52,37 @@ class ChartJsData(BaseModel):
     config: dict
     options: dict
 
+class SqlExecResult(BaseModel):
+    msg: str
+    data: list[dict]
 
+@mcp_tool("获取可用数据源列表", "获取目前可用的数据源（数据库）列表")
 def list_available_db_source() -> list[DbInfo]:
-    """获取目前可用的数据源（数据库）列表"""
     db_source = utils.get_with_retry(
         uri=f"{db_cfg['tool_api_uri']}/data_source/list",
         headers={}, params={}, proxies=db_cfg['proxy']
     )
-    logger.info(f"db_source {db_source}")
+    logger.info(f"db_source_list {db_source}")
     db_list = []
+    for item in db_source:
+        db_info = DbInfo(name=item['name'], description=item['description'], dialect=item['dialect'])
+        db_list.append(db_info)
+    logger.info(f"return_db_source_list {db_list}")
     return db_list
 
+@mcp_tool("获取表清单", "获取某个数据源下的所有表的清单")
 def list_available_tables(db_source:str) -> list[TableInfo]:
     """获取指定数据源中的所有表清单信息"""
     tables = utils.get_with_retry(
         uri=f"{db_cfg['tool_api_uri']}/{db_source}/table/list",
         headers={}, params={}, proxies=db_cfg['proxy']
     )
-    logger.info(f"tables {tables}")
+    logger.info(f"table_list {tables}")
     table_list = []
     return table_list
 
-def get_table_schema(db_source: str, table_name: str) -> list:
+@mcp_tool("获取表结构", "获取某个数据源下某个表的结构")
+def get_table_schema(db_source: str, table_name: str) -> TableSchemaInfo:
     """获取目前 db_source 中表名称为  table_name 的 schema， 输出为 json 格式"""
     table_schema = utils.get_with_retry(
         uri=f"{db_cfg['tool_api_uri']}/{db_source}/{table_name}/schema",
@@ -68,16 +92,25 @@ def get_table_schema(db_source: str, table_name: str) -> list:
     table_schema = []
     return table_schema
 
-def execute_sql_query(sql: str) -> dict:
+@mcp_tool("执行查询SQL语句", "执行查询类SQL语句，不可提交修改数据的SQL语句")
+def execute_sql_query(sql: str) -> SqlExecResult:
     """执行sql查询， 输出为json格式"""
     sql = sql.upper()
+    result = SqlExecResult(msg="", data=[])
     if "INSERT" in sql or "UPDATE" in sql or "DELETE" in sql:
-        logger.error(f"不支持的SQL语句: {sql}")
-        return {}
-    result = {}
+        logger.error(f"仅支持查询类的SQL语句, {sql}")
+        result.msg = "仅支持查询类的SQL语句"
+        return result
+    data = {"sql":sql}
+    table_schema = utils.post_with_retry(
+        uri=f"{db_cfg['tool_api_uri']}/exec/task",
+        headers={}, data=data, proxies=db_cfg['proxy']
+    )
+    logger.info(f"table_schema {table_schema}")
+    result = SqlExecResult(msg="", data=table_schema)
     return result
 
-
+# @mcp_tool("将数据转换为chartjs格式的数据", "将数据库查询获取的二维表格数据，转换为chartjs格式的数据，可由chartjs渲染成图表")
 def render_chart(chart_data: dict, chart_type: str, title: str, x_axis: str, y_axis: str) -> dict:
     """
     将输入的数据，转换为chart js 格式的数据

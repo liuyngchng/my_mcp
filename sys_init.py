@@ -16,7 +16,7 @@ def init_yml_cfg(cfg_file="cfg.yml")-> dict[str, any]:
     """
     global __init_cfg__
     if __init_cfg__:
-        logger.info("cfg_already_inited_return_variable__init_cfg__")
+        logger.info(f"cfg_already_inited_return_variable__init_cfg__, {__init_cfg__}")
         return __init_cfg__
     # 检查配置文件
     if not os.path.exists(cfg_file):
@@ -26,6 +26,7 @@ def init_yml_cfg(cfg_file="cfg.yml")-> dict[str, any]:
     # 读取配置
     with open(cfg_file, 'r', encoding='utf-8') as f:
         __init_cfg__ = yaml.safe_load(f)
+    logger.info(f"init_cfg_from_cfg_file, {__init_cfg__}")
     return __init_cfg__
 
 

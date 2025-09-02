@@ -519,13 +519,13 @@ def extract_tool_calls(content: dict) -> list[dict] | None:
 if __name__ == "__main__":
     # 直接运行时的测试代码
     my_cfg = init_yml_cfg()
-    my_question = "我想找个凉快点儿的城市去度假，酒店价格控制在300以下，帮我做个行程规划吧，另外根据天气看看我该带些什么衣服比较合适"
-
+    # my_question = "我想找个凉快点儿的城市去度假，酒店价格控制在300以下，帮我做个行程规划吧，另外根据天气看看我该带些什么衣服比较合适"
+    my_question = "查询去年各个省的天然气使用量"
     # 测试流式输出
     logger.info("测试流式输出:")
     for chunk in auto_call_mcp_yield(my_question, my_cfg):
         my_data = json.loads(chunk)
-        print(f"[{my_data['type']}] {my_data.get('content', '')}")
+        logger.info(f"[{my_data['type']}] {my_data.get('content', '')}")
 
     # 测试普通输出
     logger.info("\n测试普通输出:")

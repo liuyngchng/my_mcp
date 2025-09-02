@@ -13,8 +13,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import Request
 from starlette.responses import JSONResponse
 
-from tools.db_query import get_table_list as get_table_list_tool_from_db_query
-from tools.demo import calculate_bmi as calculate_bmi_tool_from_demo
+from tools import db_query
 
 app = FastMCP(port=19001, stateless_http=True, json_response=True, host='0.0.0.0')
 logging.config.fileConfig('logging.conf', encoding="utf-8")
@@ -137,20 +136,16 @@ def vacation_plan_prompt(city: str) -> str:
     return f"请为{city}设计一个3天的度假计划，包含景点、餐饮和住宿建议"
 
 def add_your_tools():
-    app.add_tool(
-        calculate_bmi_tool_from_demo,
-        name="calculate_bmi",
-        title="计算BMI",
-        description="根据体重(kg)和身高(m)计算身体质量指数(BMI)并返回分类",
-        structured_output=True
-    )
-    app.add_tool(
-        get_table_list_tool_from_db_query,
-        name="get_table_list",
-        title="获取数据库中的表列表",
-        description="获取数据库中的表列表，包含表的名称和表的描述",
-        structured_output=True
-    )
+    """从MCP注册表中添加工具"""
+    for name, tool_info in db_query.MCP_TOOLS.items():
+        app.add_tool(
+            tool_info['func'],
+            name=name,
+            title=tool_info['title'],
+            description=tool_info['description'],
+            structured_output=True
+        )
+        logger.info(f"Added MCP tool: {name}")
 
 def start_https_server():
     starlette_app = app.streamable_http_app()

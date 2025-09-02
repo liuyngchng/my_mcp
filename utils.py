@@ -71,26 +71,25 @@ def post_with_retry(uri: str, headers: dict, data: dict, proxies: str | None, ma
     """
     带重试机制的LLM调用
     """
-
     for attempt in range(max_retries):
         try:
-            logger.info(f"第 {attempt + 1} 次尝试调用LLM API URI, proxies: {proxies}, data: {data}")
+            logger.info(f"第 {attempt + 1} 次 request API, proxies: {proxies}, data: {data}")
             response = requests.post(uri, headers=headers, json=data, verify=False, proxies=proxies, timeout=30)
             logger.info(f"llm_response_status {response.status_code}")
 
             if response.status_code == 200:
                 return response.json()
             else:
-                logger.warning(f"LLM API URI 返回非200状态码: {response.status_code}, {response.json()}")
+                logger.warning(f"request API 返回非200状态码: {response.status_code}, {response.json()}")
                 if attempt < max_retries - 1:
                     time.sleep(2 ** attempt)  # 指数退避
 
         except requests.exceptions.Timeout:
-            logger.warning(f"LLM API 调用超时，尝试 {attempt + 1}/{max_retries}")
+            logger.warning(f"request_API_timeout，retry {attempt + 1}/{max_retries}")
             if attempt < max_retries - 1:
                 time.sleep(2 ** attempt)  # 指数退避
         except Exception as e:
-            logger.warning(f"LLM API 调用失败: {str(e)}，尝试 {attempt + 1}/{max_retries}")
+            logger.warning(f"request_API_fail: {str(e)}，retry {attempt + 1}/{max_retries}")
             if attempt < max_retries - 1:
                 time.sleep(2 ** attempt)  # 指数退避
 
