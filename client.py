@@ -288,7 +288,7 @@ def auto_call_mcp_yield(question: str, cfg: dict) -> Generator[str, None, None]:
     if not mcp_tools:
         yield json.dumps({
             "type": "status",
-            "content": f"当前没有可用的MCP工具, 请检查 MCP 服务是否正常运行",
+            "content": f"没有可用的 MCP 工具, 请检查 MCP 服务器运行是否正常",
             "iteration": 0
         }, ensure_ascii=False)
         raise ValueError("没有可用的MCP工具")
