@@ -16,6 +16,7 @@ from starlette.responses import JSONResponse
 from tools import db_query
 
 app = FastMCP(port=19001, stateless_http=True, json_response=True, host='0.0.0.0')
+
 logging.config.fileConfig('logging.conf', encoding="utf-8")
 logger = logging.getLogger(__name__)
 

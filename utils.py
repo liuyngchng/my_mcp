@@ -73,11 +73,12 @@ def post_with_retry(uri: str, headers: dict, data: dict, proxies: str | None, ma
     """
     for attempt in range(max_retries):
         try:
-            logger.info(f"第 {attempt + 1} 次 request API, proxies: {proxies}, data: {data}")
+            logger.info(f"第 {attempt + 1} 次 post {uri}, proxies: {proxies}, data: {data}")
             response = requests.post(uri, headers=headers, json=data, verify=False, proxies=proxies, timeout=30)
             logger.info(f"llm_response_status {response.status_code}")
 
             if response.status_code == 200:
+                logger.debug(f"post_response {json.dumps(response.json())}")
                 return response.json()
             else:
                 logger.warning(f"request API 返回非200状态码: {response.status_code}, {response.json()}")
@@ -102,11 +103,12 @@ def get_with_retry(uri: str, headers: dict, params: dict, proxies: str | None, m
     """
     for attempt in range(max_retries):
         try:
-            logger.info(f"第 {attempt + 1} 次尝试调用GET API URI, proxies: {proxies}, params: {params}")
+            logger.info(f"第 {attempt + 1} 次尝试调用GET API {uri}, proxies: {proxies}, params: {params}")
             response = requests.get(uri, headers=headers, params=params, verify=False, proxies=proxies, timeout=30)
             logger.info(f"get_response_status {response.status_code}")
 
             if response.status_code == 200:
+                logger.debug(f"get_response {json.dumps(response.json(), ensure_ascii=False)}")
                 return response.json()
             else:
                 logger.warning(f"GET API 返回非200状态码: {response.status_code}")
