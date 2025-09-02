@@ -97,6 +97,34 @@ def post_with_retry(uri: str, headers: dict, data: dict, proxies: str | None, ma
     # 所有重试都失败
     raise RuntimeError(f"LLM API 调用失败，已重试 {max_retries} 次")
 
+def get_with_retry(uri: str, headers: dict, params: dict, proxies: str | None, max_retries: int = 3) -> dict:
+    """
+    带重试机制的GET请求
+    """
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"第 {attempt + 1} 次尝试调用GET API URI, proxies: {proxies}, params: {params}")
+            response = requests.get(uri, headers=headers, params=params, verify=False, proxies=proxies, timeout=30)
+            logger.info(f"get_response_status {response.status_code}")
+
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.warning(f"GET API 返回非200状态码: {response.status_code}")
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)
+
+        except requests.exceptions.Timeout:
+            logger.warning(f"GET API 调用超时，尝试 {attempt + 1}/{max_retries}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+        except Exception as e:
+            logger.warning(f"GET API 调用失败: {str(e)}，尝试 {attempt + 1}/{max_retries}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+
+    raise RuntimeError(f"GET API 调用失败，已重试 {max_retries} 次")
+
 def build_curl_cmd(api, data, headers, proxies: dict | None):
     header_str = ""
     for k, v in headers.items():
