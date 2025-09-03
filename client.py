@@ -101,7 +101,7 @@ async def async_get_available_tools(force_refresh: bool = False) -> list:
     current_time = datetime.now()  # 使用正确的datetime.now()
     if (not force_refresh and TOOLS_CACHE["last_updated"] and
             (current_time - TOOLS_CACHE["last_updated"]) < timedelta(minutes=CACHE_EXPIRY_MINUTES)):
-        logger.info(f"使用缓存的工具列表，最后更新于 {TOOLS_CACHE['last_updated']}")
+        logger.info(f"使用缓存的工具列表，总共{len(TOOLS_CACHE["tools"])}个tool, 最后更新于 {TOOLS_CACHE['last_updated']}")
         return TOOLS_CACHE["tools"]
 
     all_tools = []
