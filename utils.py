@@ -3,12 +3,17 @@
 import json
 import re
 import sys
-import logging.config
 import time
+from pathlib import Path
 
 import requests
+import logging.config
 
-logging.config.fileConfig('logging.conf', encoding="utf-8")
+
+current_dir = Path(__file__).parent
+project_root = current_dir
+logging_conf_path = f"{project_root}/logging.conf"
+logging.config.fileConfig(logging_conf_path, encoding="utf-8")
 logger = logging.getLogger(__name__)
 
 def extract_json(dt: str) -> str:

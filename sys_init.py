@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+from pathlib import Path
 
 import yaml
 import os
 import logging.config
 
-logging.config.fileConfig('logging.conf', encoding="utf-8")
+current_dir = Path(__file__).parent
+project_root = current_dir
+logging_conf_path = f"{project_root}/logging.conf"
+logging.config.fileConfig(logging_conf_path, encoding="utf-8")
 logger = logging.getLogger(__name__)
+
+cfg_file_path = f"{project_root}/cfg.yml"
 
 __init_cfg__ = {}
 
-def init_yml_cfg(cfg_file="cfg.yml")-> dict[str, any]:
+def init_yml_cfg(cfg_file=cfg_file_path)-> dict[str, any]:
     """
     yaml cfg.yml, you can copy cfg.yml.template and rewrite to your own cfg.yml
     """

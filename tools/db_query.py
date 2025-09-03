@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import json
+from pathlib import Path
 
 from pydantic import BaseModel
 
@@ -9,7 +10,10 @@ from sys_init import init_yml_cfg
 
 import logging.config
 
-logging.config.fileConfig('logging.conf', encoding="utf-8")
+current_dir = Path(__file__).parent
+project_root = current_dir.parent
+logging_conf_path = f"{project_root}/logging.conf"
+logging.config.fileConfig(logging_conf_path, encoding="utf-8")
 logger = logging.getLogger(__name__)
 
 db_cfg = init_yml_cfg()['api']
@@ -123,3 +127,20 @@ def render_chart(chart_data: dict, chart_type: str, title: str, x_axis: str, y_a
     """
     chart_js_dt = {}
     return chart_js_dt
+
+
+if __name__ == "__main__":
+    # 测试代码
+    # 获取可用数据源列表
+    db_list = list_available_db_source()
+    print(db_list)
+    # 获取表清单
+    table_list = list_available_tables("mysql")
+    print(table_list)
+    # 获取表结构
+    table_schema = get_table_schema("mysql", "user")
+    print(table_schema)
+    # 执行查询SQL语句
+    sql = "select * from user"
+    result = execute_sql_query(sql)
+    print(result)
