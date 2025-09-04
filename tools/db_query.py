@@ -48,9 +48,9 @@ class TableColumnInfo(BaseModel):
     comment: str
 
 class TableSchemaInfo(BaseModel):
+    db_name: str
     table_name: str
-    description: str
-    columns: list[TableColumnInfo]
+    create_table_sql: str
 
 class ChartJsData(BaseModel):
     config: dict
@@ -88,10 +88,14 @@ def list_available_tables(db_source:str) -> list[TableInfo]:
 def get_table_schema(db_source: str, table_name: str) -> TableSchemaInfo:
     """获取目前 db_source 中表名称为  table_name 的 schema， 输出为 json 格式"""
     uri=f"{db_cfg['tool_api_uri']}/{db_source}/{table_name}/schema"
-    table_schema = utils.get_with_retry(uri=uri, headers={}, params={}, proxies=None)
-    logger.info(f"table_schema {table_schema}")
-    table_schema = []
-    return table_schema
+    tb_json = utils.get_with_retry(uri=uri, headers={}, params={}, proxies=None)
+    logger.info(f"get_table_schema {tb_json}")
+    tb_schema = TableSchemaInfo(
+        db_name=tb_json['db_name'],
+        table_name=tb_json['table_name'],
+        create_table_sql=tb_json['schema']
+    )
+    return tb_schema
 
 @mcp_tool("执行查询SQL语句", "执行查询类SQL语句，不可提交修改数据的SQL语句")
 def execute_sql_query(sql: str) -> SqlExecResult:
