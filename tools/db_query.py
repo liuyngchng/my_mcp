@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Copyright (c) [2025] [liuyngchng@hotmail.com] - All rights reserved.
-import json
+# 如果在 project 根目录下运行，可以这样执行  python -m tools.db_query
 from pathlib import Path
 
 from pydantic import BaseModel
 
-import utils
+from utils import get_with_retry, post_with_retry
 from sys_init import init_yml_cfg
 
 import logging.config
@@ -64,7 +64,7 @@ class SqlExecResult(BaseModel):
 @mcp_tool("获取可用数据源列表", "获取目前可用的数据源（数据库）列表")
 def list_available_db_source() -> list[DbInfo]:
     uri = f"{db_cfg['tool_api_uri']}/ds/list"
-    db_source = utils.get_with_retry(uri=uri, headers={}, params={}, proxies=None)
+    db_source = get_with_retry(uri=uri, headers={}, params={}, proxies=None)
     logger.info(f"db_source_list {db_source}")
     db_list = []
     for item in db_source:
@@ -77,7 +77,7 @@ def list_available_db_source() -> list[DbInfo]:
 def list_available_tables(db_source:str) -> list[TableInfo]:
     """获取指定数据源中的所有表清单信息"""
     uri =f"{db_cfg['tool_api_uri']}/{db_source}/table/list"
-    tables = utils.get_with_retry(uri=uri,headers={}, params={}, proxies=None)
+    tables = get_with_retry(uri=uri,headers={}, params={}, proxies=None)
     logger.info(f"table_list {tables}")
     table_list = []
     for item in tables:
@@ -89,7 +89,7 @@ def list_available_tables(db_source:str) -> list[TableInfo]:
 def get_table_schema(db_source: str, table_name: str) -> TableSchemaInfo:
     """获取目前 db_source 中表名称为  table_name 的 schema， 输出为 json 格式"""
     uri=f"{db_cfg['tool_api_uri']}/{db_source}/{table_name}/schema"
-    tb_json = utils.get_with_retry(uri=uri, headers={}, params={}, proxies=None)
+    tb_json = get_with_retry(uri=uri, headers={}, params={}, proxies=None)
     logger.info(f"get_table_schema {tb_json}")
     tb_schema = TableSchemaInfo(
         db_name=tb_json['db_name'],
@@ -109,7 +109,7 @@ def execute_sql_query(sql: str) -> SqlExecResult:
         return result
     data = {"sql":sql}
     uri= f"{db_cfg['tool_api_uri']}/exec/task"
-    table_schema = utils.post_with_retry(uri=uri, headers={}, data=data, proxies=None)
+    table_schema = post_with_retry(uri=uri, headers={}, data=data, proxies=None)
     logger.info(f"table_schema {table_schema}")
     result = SqlExecResult(msg="", data=table_schema)
     return result
