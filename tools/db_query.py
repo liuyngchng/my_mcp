@@ -62,7 +62,7 @@ class SqlExecResult(BaseModel):
 
 @mcp_tool("获取可用数据源列表", "获取目前可用的数据源（数据库）列表")
 def list_available_db_source() -> list[DbInfo]:
-    uri = f"{db_cfg['tool_api_uri']}/data_source/list"
+    uri = f"{db_cfg['tool_api_uri']}/ds/list"
     db_source = utils.get_with_retry(uri=uri, headers={}, params={}, proxies=None)
     logger.info(f"db_source_list {db_source}")
     db_list = []
@@ -79,6 +79,9 @@ def list_available_tables(db_source:str) -> list[TableInfo]:
     tables = utils.get_with_retry(uri=uri,headers={}, params={}, proxies=None)
     logger.info(f"table_list {tables}")
     table_list = []
+    for item in tables:
+        table_info = TableInfo(name=item['name'], description=item['desc'])
+        table_list.append(table_info)
     return table_list
 
 @mcp_tool("获取表结构", "获取某个数据源下某个表的结构")
@@ -133,14 +136,14 @@ if __name__ == "__main__":
     # 测试代码
     # 获取可用数据源列表
     db_list = list_available_db_source()
-    print(db_list)
+    logger.info(f"db_list={db_list}")
     # 获取表清单
-    table_list = list_available_tables("mysql")
-    print(table_list)
+    table_list = list_available_tables(db_list[0].name)
+    logger.info(f"table_list={table_list}")
     # 获取表结构
-    table_schema = get_table_schema("mysql", "user")
-    print(table_schema)
+    table_schema = get_table_schema(db_list[0].name, table_list[0].name)
+    logger.info(f"table_schema={table_schema}")
     # 执行查询SQL语句
     sql = "select * from user"
-    result = execute_sql_query(sql)
-    print(result)
+    exec_result = execute_sql_query(sql)
+    logger.info(f"exec_result={exec_result}")
