@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (c) [2025] [liuyngchng@hotmail.com] - All rights reserved.
 LLM_PY_ENV="llm_py_env"
 # 检查文件夹是否存在
 if [ ! -d "${LLM_PY_ENV}" ]; then

@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (c) [2025] [liuyngchng@hotmail.com] - All rights reserved.
 app='http_mcp'
 docker stop ${app}
 docker rm ${app}

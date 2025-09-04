@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright (c) [2025] [liuyngchng@hotmail.com] - All rights reserved.
+
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Depends, status
 from pydantic import BaseModel, Field

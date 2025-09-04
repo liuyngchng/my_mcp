@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (c) [2025] [liuyngchng@hotmail.com] - All rights reserved.
 
 curl -X POST -s http://localhost:8001/mcp \
   -H "Content-Type: application/json" \
