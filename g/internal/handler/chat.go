@@ -139,8 +139,19 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 		h.RefreshTools()
 	}
 
+	// 构建 system prompt：严格禁止 LLM 编造数据
+	systemPrompt := "你是一个智能助手。你必须严格遵守以下规则：\n" +
+		"1. 如果用户的问题需要查询数据，且系统提供了可用的工具，请使用工具获取数据后再回答。\n" +
+		"2. 如果系统没有提供任何工具，或者工具调用全部失败，你必须直接回复'未查询到相关信息。'，不得编造、猜测或依据训练数据给出任何具体数据。\n" +
+		"3. 如果用户的问题不需要工具（如闲聊、常识问答），可以直接回答。\n" +
+		"4. 回答必须简洁、准确。"
+
+	if len(h.Tools) == 0 {
+		systemPrompt += "\n\n当前系统未加载任何 MCP 工具，无法查询数据。对于任何需要查询的问题，请回复'未查询到相关信息，请确认 MCP 服务配置是否正确。'"
+	}
+
 	messages := []llm.ChatMessage{
-		{Role: "system", Content: "你是一个智能助手，可以根据用户需要选择合适的工具来完成任务。如果用户的问题需要查询数据，请使用可用的工具；如果不需要工具，直接回答即可。"},
+		{Role: "system", Content: systemPrompt},
 		{Role: "user", Content: req.Msg},
 	}
 
