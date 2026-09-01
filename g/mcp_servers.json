@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "qcc-company": {
+      "url": "https://agent.qcc.com/mcp/company/stream",
+      "_description": "企业工商信息（16 个工具）：实体识别、工商信息、股东、实控人、受益所有人、对外投资、财务、上市信息等"
+    },
+    "qcc-risk": {
+      "url": "https://agent.qcc.com/mcp/risk/stream",
+      "_description": "企业风险信息（30 个工具）：行政处罚、失信、被执行、股权冻结/出质、开庭公告、裁判文书、风险扫描等"
+    },
+    "qcc-ipr": {
+      "url": "https://agent.qcc.com/mcp/ipr/stream",
+      "_description": "知识产权（18 个工具）：专利、商标、软件著作权、作品著作权、新媒体账号、标准信息等"
+    },
+    "qcc-operation": {
+      "url": "https://agent.qcc.com/mcp/operation/stream",
+      "_description": "企业经营（36 个工具）：招投标、融资、私募基金、荣誉、新闻舆情、资质证书、招聘、抽查检查等"
+    },
+    "qcc-executive": {
+      "url": "https://agent.qcc.com/mcp/executive/stream",
+      "_description": "董监高信息（43 个工具）：董监高维度的风险、任职、对外投资、关联企业、股权质押、终本案件等"
+    },
+    "qcc-legal-regulation": {
+      "url": "https://agent.qcc.com/mcp/regulation/stream",
+      "_description": "法律法规（6 个工具）：法规/法条检索、详情、语义检索、法规溯源"
+    },
+    "qcc-legal-case": {
+      "url": "https://agent.qcc.com/mcp/case/stream",
+      "_description": "司法案例（4 个工具）：权威案例/普通案例检索、案例详情、案例溯源"
+    }
+  }
+}

@@ -1,7 +1,16 @@
 .idea
+.vscode
 __pycache__
 *.log
 **/*.yml
 **/*.yaml
 *.yaml
 *.lock
+
+# Go 编译产物
+mcp-chat
+mcp-chat.exe
+build/
+
+# 运行日志
+log/

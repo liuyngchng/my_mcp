@@ -1,0 +1,33 @@
+# MCP 自然语言查询客户端配置
+# 部署时复制为 cfg.yml 并根据实际环境修改：
+#   cp cfg.yml.template cfg.yml
+
+server:
+  port: 19002
+  debug: true
+
+# MCP 服务器连接配置
+mcp:
+  # 服务器列表文件（标准 MCP 客户端 JSON 格式）
+  servers_file: "mcp_servers.json"
+  # verify_ssl: true  → 验证 HTTPS 证书
+  # verify_ssl: false → 跳过证书验证（自签名/内网环境）
+  verify_ssl: false
+  # enable_proxy: true  → 使用环境变量 HTTP_PROXY/HTTPS_PROXY 中的代理
+  # enable_proxy: false → 忽略环境变量，直连
+  enable_proxy: true
+  # 认证 token（代码自动加 "Bearer " 前缀，作为 Authorization header）
+  # 如果 mcp_servers.json 中某个 server 已配置 Authorization header，则不会覆盖
+  auth_token: ""
+
+# LLM 配置（OpenAI 兼容接口）
+llm:
+  api_uri: "https://api.openai.com/v1"
+  api_key: ""
+  model_name: "gpt-4o"
+  # verify_ssl: true  → 验证 HTTPS 证书
+  # verify_ssl: false → 跳过证书验证（自签名/内网环境）
+  verify_ssl: false
+  # enable_proxy: true  → 使用环境变量 HTTP_PROXY/HTTPS_PROXY 中的代理
+  # enable_proxy: false → 忽略环境变量，直连
+  enable_proxy: false
