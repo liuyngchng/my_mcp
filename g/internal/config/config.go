@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -17,8 +18,9 @@ type Config struct {
 
 // ServerConfig 服务器配置
 type ServerConfig struct {
-	Port  int  `yaml:"port"`
-	Debug bool `yaml:"debug"`
+	Port  int    `yaml:"port"`
+	Debug bool   `yaml:"debug"`
+	Title string `yaml:"title"`
 }
 
 // MCPConfig MCP 全局配置
@@ -68,6 +70,16 @@ func Load(path string) (*Config, error) {
 	if cfg.Server.Port == 0 {
 		cfg.Server.Port = 19002
 	}
+	if cfg.Server.Title == "" {
+		cfg.Server.Title = "AI 助手"
+	}
+
+	// 自动 trim 用户输入的字符串，避免多余空格/制表符
+	cfg.Server.Title = strings.TrimSpace(cfg.Server.Title)
+	cfg.MCP.AuthToken = strings.TrimSpace(cfg.MCP.AuthToken)
+	cfg.LLM.APIURI = strings.TrimSpace(cfg.LLM.APIURI)
+	cfg.LLM.APIKey = strings.TrimSpace(cfg.LLM.APIKey)
+	cfg.LLM.ModelName = strings.TrimSpace(cfg.LLM.ModelName)
 
 	return &cfg, nil
 }

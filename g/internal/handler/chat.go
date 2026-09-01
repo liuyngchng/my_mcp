@@ -132,6 +132,7 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "不支持流式响应"})
 		return
 	}
+	w := c.Writer
 
 	// 如果没有工具可用，刷新一次
 	if len(h.Tools) == 0 {
@@ -153,31 +154,34 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 		}
 
 		if i == maxIter-1 {
-			// 最后一次迭代，去掉工具，强制 LLM 直接回答
+			sseStatus(w, flusher, "正在生成最终回答...")
 			resp, err := h.LLMClient.Chat(messages, nil)
 			if err != nil {
-				sseWrite(c.Writer, flusher, fmt.Sprintf("抱歉，请求 LLM 出错: %s", err.Error()))
-				sseWrite(c.Writer, flusher, "[DONE]")
+				sseStatus(w, flusher, fmt.Sprintf("请求 LLM 出错: %s", err.Error()))
+				sseDone(w, flusher)
 				return
 			}
 			if len(resp.Choices) > 0 {
-				sseWrite(c.Writer, flusher, resp.Choices[0].Message.Content)
+				sseContent(w, flusher, resp.Choices[0].Message.Content)
 			}
-			sseWrite(c.Writer, flusher, "[DONE]")
+			sseDone(w, flusher)
 			return
 		}
 
 		// 非流式调用 LLM（带工具），判断是否需要 tool calling
+		if i == 0 {
+			sseStatus(w, flusher, "正在分析您的问题...")
+		}
 		resp, err := h.LLMClient.Chat(messages, h.Tools)
 		if err != nil {
-			sseWrite(c.Writer, flusher, fmt.Sprintf("抱歉，请求 LLM 出错: %s", err.Error()))
-			sseWrite(c.Writer, flusher, "[DONE]")
+			sseStatus(w, flusher, fmt.Sprintf("请求 LLM 出错: %s", err.Error()))
+			sseDone(w, flusher)
 			return
 		}
 
 		if len(resp.Choices) == 0 {
-			sseWrite(c.Writer, flusher, "抱歉，LLM 返回了空响应。")
-			sseWrite(c.Writer, flusher, "[DONE]")
+			sseContent(w, flusher, "抱歉，LLM 返回了空响应。")
+			sseDone(w, flusher)
 			return
 		}
 
@@ -185,23 +189,22 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 
 		// 如果 LLM 直接返回了答案（stop），则流式输出
 		if choice.FinishReason == "stop" {
-			// 用流式重新获取最终答案
+			sseStatus(w, flusher, "正在生成回答...")
 			streamCh, errCh := h.LLMClient.ChatStream(messages, nil)
 			for {
 				select {
 				case chunk, ok := <-streamCh:
 					if !ok {
-						sseWrite(c.Writer, flusher, "[DONE]")
+						sseDone(w, flusher)
 						return
 					}
-					sseWrite(c.Writer, flusher, chunk)
+					sseContent(w, flusher, chunk)
 				case err := <-errCh:
 					if err != nil {
 						slog.Warn("stream final answer error", "error", err)
-						// 用非流式结果兜底
-						sseWrite(c.Writer, flusher, choice.Message.Content)
+						sseContent(w, flusher, choice.Message.Content)
 					}
-					sseWrite(c.Writer, flusher, "[DONE]")
+					sseDone(w, flusher)
 					return
 				}
 			}
@@ -209,17 +212,18 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 
 		// 处理 tool calls
 		if choice.FinishReason == "tool_calls" && len(choice.Message.ToolCalls) > 0 {
-			// 添加 assistant 消息
 			messages = append(messages, choice.Message)
 
-			// 发送进度通知
-			toolNames := make([]string, len(choice.Message.ToolCalls))
-			for j, tc := range choice.Message.ToolCalls {
-				toolNames[j] = tc.Function.Name
+			// 通知用户即将调用哪些工具
+			for _, tc := range choice.Message.ToolCalls {
+				srv, originalName, err := h.findMCPServer(tc.Function.Name)
+				if err != nil {
+					sseStatus(w, flusher, fmt.Sprintf("⚠️ 无法找到工具: %s", tc.Function.Name))
+					continue
+				}
+				sseStatus(w, flusher, fmt.Sprintf("📡 正在查询 %s → %s ...", srv.Name, originalName))
 			}
-			sseWrite(c.Writer, flusher, fmt.Sprintf("\n\n🔧 *正在调用工具: %s...*\n\n", strings.Join(toolNames, ", ")))
 
-			// 执行每个工具调用
 			for _, tc := range choice.Message.ToolCalls {
 				srv, originalName, err := h.findMCPServer(tc.Function.Name)
 				if err != nil {
@@ -232,7 +236,6 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 					continue
 				}
 
-				// 解析参数
 				var args map[string]interface{}
 				if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 					args = make(map[string]interface{})
@@ -242,6 +245,7 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 				result, err := srv.CallTool(originalName, args)
 				if err != nil {
 					slog.Error("mcp tool call failed", "tool", originalName, "server", srv.Name, "error", err)
+					sseStatus(w, flusher, fmt.Sprintf("❌ %s → %s 查询失败", srv.Name, originalName))
 					messages = append(messages, llm.ChatMessage{
 						Role:       "tool",
 						ToolCallID: tc.ID,
@@ -251,6 +255,7 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 				}
 
 				slog.Info("mcp tool result", "tool", originalName, "server", srv.Name, "result_len", len(result))
+				sseStatus(w, flusher, fmt.Sprintf("✅ %s 查询完成，正在分析结果...", srv.Name))
 				messages = append(messages, llm.ChatMessage{
 					Role:       "tool",
 					ToolCallID: tc.ID,
@@ -258,36 +263,36 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 				})
 			}
 
-			// 继续循环，让 LLM 处理工具结果
 			continue
 		}
 
-		// 其他情况（可能是 length 等），用流式输出
+		// 其他情况
 		if choice.Message.Content != "" {
+			sseStatus(w, flusher, "正在生成回答...")
 			streamCh, errCh := h.LLMClient.ChatStream(messages, nil)
 			for {
 				select {
 				case chunk, ok := <-streamCh:
 					if !ok {
-						sseWrite(c.Writer, flusher, "[DONE]")
+						sseDone(w, flusher)
 						return
 					}
-					sseWrite(c.Writer, flusher, chunk)
+					sseContent(w, flusher, chunk)
 				case err := <-errCh:
 					if err != nil {
-						sseWrite(c.Writer, flusher, choice.Message.Content)
+						sseContent(w, flusher, choice.Message.Content)
 					}
-					sseWrite(c.Writer, flusher, "[DONE]")
+					sseDone(w, flusher)
 					return
 				}
 			}
 		}
-		sseWrite(c.Writer, flusher, "[DONE]")
+		sseDone(w, flusher)
 		return
 	}
 
-	sseWrite(c.Writer, flusher, "处理超时，未能生成完整回答。")
-	sseWrite(c.Writer, flusher, "[DONE]")
+	sseStatus(w, flusher, "处理超时，未能生成完整回答。")
+	sseDone(w, flusher)
 }
 
 // Health 健康检查
@@ -311,14 +316,24 @@ func (h *ChatHandler) Refresh(c *gin.Context) {
 	})
 }
 
-// sseWrite 写入 SSE 数据
+// sseWrite 写入 SSE 数据（保留旧名，兼容可能存在的引用）
 func sseWrite(w io.Writer, flusher http.Flusher, data string) {
 	if data == "[DONE]" {
-		fmt.Fprintf(w, "data: [DONE]\n\n")
-		flusher.Flush()
+		sseDone(w, flusher)
 		return
 	}
-	// 按换行分割，逐行发送 SSE
+	sseContent(w, flusher, data)
+}
+
+// sseStatus 写入进度状态（前端用独立样式渲染，不进入正文）
+func sseStatus(w io.Writer, flusher http.Flusher, msg string) {
+	fmt.Fprintf(w, "event: status\ndata: %s\n\n", msg)
+	flusher.Flush()
+	time.Sleep(10 * time.Millisecond)
+}
+
+// sseContent 写入正文内容（markdown）
+func sseContent(w io.Writer, flusher http.Flusher, data string) {
 	if strings.Contains(data, "\n") {
 		lines := strings.Split(data, "\n")
 		for _, line := range lines {
@@ -333,7 +348,11 @@ func sseWrite(w io.Writer, flusher http.Flusher, data string) {
 	}
 	fmt.Fprintf(w, "\n")
 	flusher.Flush()
-
-	// 对抗浏览器缓冲：在流式场景下，每输出一小段就 sleep 极短时间，让浏览器有时间渲染
 	time.Sleep(10 * time.Millisecond)
+}
+
+// sseDone 发送结束标记
+func sseDone(w io.Writer, flusher http.Flusher) {
+	fmt.Fprintf(w, "data: [DONE]\n\n")
+	flusher.Flush()
 }

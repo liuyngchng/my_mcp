@@ -25,6 +25,12 @@ var webFS embed.FS
 var mcpServersJSON []byte
 
 func main() {
+	// 初始化日志（先于配置加载，确保启动错误可记录）
+	if err := logger.Init(true); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to init logger: %v\n", err)
+		os.Exit(1)
+	}
+
 	// 配置路径
 	cfgPath := "cfg.yml"
 	if len(os.Args) > 1 {
@@ -33,13 +39,13 @@ func main() {
 
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
+		slog.Error("failed to load config", "error", err, "path", cfgPath)
 		os.Exit(1)
 	}
 
-	// 初始化日志
+	// 按配置重新设置日志级别
 	if err := logger.Init(cfg.Server.Debug); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to init logger: %v\n", err)
+		slog.Error("failed to reinit logger", "error", err)
 		os.Exit(1)
 	}
 
@@ -47,7 +53,7 @@ func main() {
 
 	// 创建聊天处理器
 	chatHandler := handler.NewChatHandler(cfg, mcpServersJSON)
-	pageHandler := handler.NewPageHandler("MCP Smart Assistant")
+	pageHandler := handler.NewPageHandler(cfg.Server.Title)
 
 	// 设置 Gin
 	if !cfg.Server.Debug {

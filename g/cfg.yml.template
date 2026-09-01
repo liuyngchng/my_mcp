@@ -5,6 +5,7 @@
 server:
   port: 19002
   debug: true
+  title: "AI 助手"
 
 # MCP 服务器连接配置
 mcp:

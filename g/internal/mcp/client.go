@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"mcp-chat/internal/config"
@@ -106,7 +107,11 @@ func NewClientFromConfig(cfg *config.Config, serversJSON []byte) ([]*Client, err
 				headers = make(map[string]string)
 			}
 			if _, exists := headers["Authorization"]; !exists {
-				headers["Authorization"] = "Bearer " + cfg.MCP.AuthToken
+				token := strings.TrimSpace(cfg.MCP.AuthToken)
+				if !strings.HasPrefix(token, "Bearer ") {
+					token = "Bearer " + token
+				}
+				headers["Authorization"] = token
 			}
 		}
 		clients = append(clients, NewClient(srv.Name, srv.URL, headers, verifySSL, enableProxy))
@@ -174,6 +179,12 @@ func (c *Client) call(method string, params interface{}) (*jsonRPCResponse, erro
 
 	var rpcResp jsonRPCResponse
 	if err := json.Unmarshal(respBody, &rpcResp); err != nil {
+		// 打印响应体前 500 字符，方便排查格式问题
+		preview := string(respBody)
+		if len(preview) > 500 {
+			preview = preview[:500] + "..."
+		}
+		slog.Error("mcp response parse failed", "server", c.Name, "method", method, "body_preview", preview)
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 

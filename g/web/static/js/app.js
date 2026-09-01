@@ -104,6 +104,8 @@ stopButton.addEventListener('click', function() {
     resetUI();
 });
 
+let currentStatusMessage = null;
+
 // 流式请求
 async function fetchQueryData(query) {
     isFetching = true;
@@ -112,8 +114,8 @@ async function fetchQueryData(query) {
 
     abortController = new AbortController();
 
-    // 加载中动画
     currentBotMessage = addMessage('<div class="typing-indicator"><span></span><span></span><span></span> 思考中...</div>', 'bot');
+    currentStatusMessage = null;
 
     try {
         const response = await fetch('/api/chat', {
@@ -138,26 +140,50 @@ async function fetchQueryData(query) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let accumulatedText = '';
+        let buffer = '';
+        let currentEventType = '';
 
         while (true) {
             const { value, done } = await reader.read();
             if (done) break;
 
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
+            buffer += decoder.decode(value, { stream: true });
 
-            for (const line of lines) {
-                if (line.startsWith('data: ')) {
+            // 按行解析 SSE
+            const lines = buffer.split('\n');
+            buffer = '';  // 保留不完整的最后一行
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+
+                if (line.startsWith('event: ')) {
+                    currentEventType = line.substring(7).trim();
+                } else if (line.startsWith('data: ')) {
                     const data = line.substring(6);
                     if (data === '[DONE]' || data === '') continue;
 
-                    accumulatedText += data;
-                    updateBotMessage(accumulatedText);
+                    if (currentEventType === 'status') {
+                        // 进度状态：显示在 bot 消息上方，不进入正文
+                        showStatusIndicator(data);
+                        currentEventType = '';
+                    } else {
+                        // 正文内容
+                        if (currentStatusMessage) {
+                            currentStatusMessage.remove();
+                            currentStatusMessage = null;
+                        }
+                        accumulatedText += data;
+                        updateBotMessage(accumulatedText);
+                        currentEventType = '';
+                    }
+                }
+                // 空行标记事件结束，重置 event type
+                if (line === '') {
+                    currentEventType = '';
                 }
             }
         }
 
-        // 添加复制按钮
         addCopyButton(currentBotMessage, accumulatedText);
 
     } catch (error) {
@@ -170,8 +196,23 @@ async function fetchQueryData(query) {
             }
         }
     } finally {
+        if (currentStatusMessage) {
+            currentStatusMessage.remove();
+            currentStatusMessage = null;
+        }
         resetUI();
     }
+}
+
+// 显示进度状态指示器
+function showStatusIndicator(text) {
+    if (!currentStatusMessage) {
+        currentStatusMessage = document.createElement('div');
+        currentStatusMessage.className = 'status-line';
+        currentBotMessage.appendChild(currentStatusMessage);
+    }
+    currentStatusMessage.innerHTML = text;
+    currentStatusMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 // 更新机器人消息

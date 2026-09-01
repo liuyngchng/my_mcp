@@ -13,4 +13,4 @@ mcp-chat.exe
 build/
 
 # 运行日志
-log/
+logs/

@@ -1,13 +1,26 @@
 #!/bin/bash
-# Cross-compile script for mcp-chat
-# Usage: ./build.sh [version]
+# Linux build script for mcp-chat
+# Usage: ./build.sh [version] [--windows]
 #
-# Output: standalone exe/elf binaries with embedded web + mcp_servers.json.
+#   version   - version tag, defaults to YYYYMMDD
+#   --windows - also cross-compile Windows .exe (amd64 + arm64)
+#
+# Output: standalone elf/exe binaries with embedded web + mcp_servers.json.
 # cfg.yml is external (placed alongside the binary at runtime).
 
 set -e
 
-VERSION="${1:-$(date +%Y%m%d)}"
+CROSS_WINDOWS=false
+VERSION=""
+
+for arg in "$@"; do
+    case "$arg" in
+        --windows) CROSS_WINDOWS=true ;;
+        *) VERSION="$arg" ;;
+    esac
+done
+
+VERSION="${VERSION:-$(date +%Y%m%d)}"
 APP_NAME="mcp-chat"
 BUILD_DIR="build"
 
@@ -38,12 +51,15 @@ build_one() {
     echo ""
 }
 
-build_one windows amd64 .exe
-build_one windows arm64 .exe
-build_one linux   amd64 ""
-build_one linux   arm64 ""
-build_one darwin  amd64 ""
-build_one darwin  arm64 ""
+# Always build Linux native
+build_one linux amd64 ""
+build_one linux arm64 ""
+
+# Cross-compile Windows on demand
+if $CROSS_WINDOWS; then
+    build_one windows amd64 .exe
+    build_one windows arm64 .exe
+fi
 
 echo "============================================"
 echo " Done. Output: $BUILD_DIR/"

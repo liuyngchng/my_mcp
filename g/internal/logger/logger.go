@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -174,13 +175,21 @@ func Init(debug bool) error {
 		level = slog.LevelDebug
 	}
 
-	hw := &hourlyWriter{dir: "log"}
+	// 关闭旧的 writer（如果存在），避免文件句柄泄漏
+	if old := globalWriter.Load(); old != nil {
+		old.(*hourlyWriter).Close()
+	}
+
+	hw := &hourlyWriter{dir: "logs"}
+	globalWriter.Store(hw)
 	handler := &customHandler{w: hw, level: level}
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
 
 	return nil
 }
+
+var globalWriter atomic.Value
 
 // GinLogger Gin 请求日志中间件（只记录 4xx/5xx）
 func GinLogger() gin.HandlerFunc {

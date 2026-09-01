@@ -319,6 +319,32 @@ header h1 {
     animation: spin 1s linear infinite;
 }
 
+/* ============================================================
+   状态指示行
+   ============================================================ */
+.status-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: #e8f5e9;
+    border-left: 3px solid #4caf50;
+    border-radius: 0 6px 6px 0;
+    color: #2e7d32;
+    font-size: 0.85rem;
+    margin: 8px 0 4px 0;
+    animation: fadeIn 0.3s ease-in;
+}
+
+.status-line:has(+ .status-line) {
+    margin-bottom: 2px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
