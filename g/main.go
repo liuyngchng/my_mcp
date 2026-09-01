@@ -21,6 +21,9 @@ import (
 //go:embed web
 var webFS embed.FS
 
+//go:embed mcp_servers.json
+var mcpServersJSON []byte
+
 func main() {
 	// 配置路径
 	cfgPath := "cfg.yml"
@@ -30,21 +33,21 @@ func main() {
 
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "加载配置文件失败: %v\n", err)
+		fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
 		os.Exit(1)
 	}
 
-	// 初始化日志（自定义格式 + 按小时滚动文件）
+	// 初始化日志
 	if err := logger.Init(cfg.Server.Debug); err != nil {
-		fmt.Fprintf(os.Stderr, "初始化日志失败: %v\n", err)
+		fmt.Fprintf(os.Stderr, "failed to init logger: %v\n", err)
 		os.Exit(1)
 	}
 
-	slog.Info("启动 MCP 自然语言查询客户端", "port", cfg.Server.Port, "mcp_servers_file", cfg.MCP.ServersFile)
+	slog.Info("starting mcp-chat", "port", cfg.Server.Port)
 
 	// 创建聊天处理器
-	chatHandler := handler.NewChatHandler(cfg)
-	pageHandler := handler.NewPageHandler("MCP 智能助手")
+	chatHandler := handler.NewChatHandler(cfg, mcpServersJSON)
+	pageHandler := handler.NewPageHandler("MCP Smart Assistant")
 
 	// 设置 Gin
 	if !cfg.Server.Debug {
@@ -53,18 +56,18 @@ func main() {
 	r := gin.New()
 	r.Use(logger.GinLogger(), gin.Recovery())
 
-	// 加载 HTML 模板（从 embed.FS）
+	// 加载 HTML 模板
 	tmpl, err := template.ParseFS(webFS, "web/templates/*")
 	if err != nil {
-		slog.Error("加载模板失败", "error", err)
+		slog.Error("failed to load templates", "error", err)
 		os.Exit(1)
 	}
 	r.SetHTMLTemplate(tmpl)
 
-	// 静态文件（从 embed.FS）
+	// 静态文件
 	staticFS, err := fs.Sub(webFS, "web/static")
 	if err != nil {
-		slog.Error("加载静态文件失败", "error", err)
+		slog.Error("failed to load static files", "error", err)
 		os.Exit(1)
 	}
 	r.StaticFS("/static", http.FS(staticFS))
@@ -80,14 +83,14 @@ func main() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 		<-sigCh
-		slog.Info("正在关闭服务...")
+		slog.Info("shutting down...")
 		os.Exit(0)
 	}()
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
-	slog.Info("服务启动", "addr", addr, "url", fmt.Sprintf("http://localhost%s", addr))
+	slog.Info("server started", "addr", addr, "url", fmt.Sprintf("http://localhost%s", addr))
 	if err := r.Run(addr); err != nil {
-		slog.Error("服务启动失败", "error", err)
+		slog.Error("server failed to start", "error", err)
 		os.Exit(1)
 	}
 }

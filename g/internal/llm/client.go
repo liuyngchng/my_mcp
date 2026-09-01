@@ -133,28 +133,30 @@ func (c *Client) ChatStream(messages []ChatMessage, tools []ToolDefinition) (<-c
 
 		jsonData, err := json.Marshal(reqBody)
 		if err != nil {
-			errCh <- fmt.Errorf("序列化请求失败: %w", err)
+			errCh <- fmt.Errorf("failed to marshal request: %w", err)
 			return
 		}
 
 		url := c.BaseURL + "/chat/completions"
 		req, err := http.NewRequest("POST", url, bytes.NewReader(jsonData))
 		if err != nil {
-			errCh <- fmt.Errorf("创建请求失败: %w", err)
+			errCh <- fmt.Errorf("failed to create http request: %w", err)
 			return
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+c.APIKey)
 
 		start := time.Now()
-		slog.Info("llm stream request", "model", c.ModelName, "url", url)
+		slog.Info("llm stream request start", "model", c.ModelName, "url", url)
 		resp, err := c.httpCli.Do(req)
 		if err != nil {
-			slog.Error("llm stream error", "error", err)
-			errCh <- fmt.Errorf("请求 LLM 失败: %w", err)
+			slog.Error("llm stream request failed", "model", c.ModelName, "error", err, "duration_ms", time.Since(start).Milliseconds())
+			errCh <- fmt.Errorf("llm request failed: %w", err)
 			return
 		}
 		defer resp.Body.Close()
+
+		slog.Info("llm stream response received", "model", c.ModelName, "status", resp.StatusCode, "duration_ms", time.Since(start).Milliseconds())
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
@@ -162,8 +164,8 @@ func (c *Client) ChatStream(messages []ChatMessage, tools []ToolDefinition) (<-c
 			if len(bodyStr) > 300 {
 				bodyStr = bodyStr[:300] + "..."
 			}
-			slog.Error("llm stream error", "status", resp.StatusCode, "body", bodyStr)
-			errCh <- fmt.Errorf("LLM API 返回 %d: %s", resp.StatusCode, bodyStr)
+			slog.Error("llm stream response error", "status", resp.StatusCode, "body", bodyStr)
+			errCh <- fmt.Errorf("llm api returned %d: %s", resp.StatusCode, bodyStr)
 			return
 		}
 
@@ -217,29 +219,31 @@ func (c *Client) Chat(messages []ChatMessage, tools []ToolDefinition) (*ChatComp
 
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("序列化请求失败: %w", err)
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	url := c.BaseURL + "/chat/completions"
 	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonData))
 	if err != nil {
-		return nil, fmt.Errorf("创建请求失败: %w", err)
+		return nil, fmt.Errorf("failed to create http request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.APIKey)
 
 	start := time.Now()
-	slog.Info("llm sync request", "model", c.ModelName, "url", url)
+	slog.Info("llm sync request start", "model", c.ModelName, "url", url)
 	resp, err := c.httpCli.Do(req)
 	if err != nil {
-		slog.Error("llm sync error", "error", err)
-		return nil, fmt.Errorf("请求 LLM 失败: %w", err)
+		slog.Error("llm sync request failed", "model", c.ModelName, "error", err, "duration_ms", time.Since(start).Milliseconds())
+		return nil, fmt.Errorf("llm request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
+	slog.Info("llm sync response received", "model", c.ModelName, "status", resp.StatusCode, "duration_ms", time.Since(start).Milliseconds())
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("读取响应失败: %w", err)
+		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -247,15 +251,15 @@ func (c *Client) Chat(messages []ChatMessage, tools []ToolDefinition) (*ChatComp
 		if len(bodyStr) > 300 {
 			bodyStr = bodyStr[:300] + "..."
 		}
-		slog.Error("llm sync error", "status", resp.StatusCode, "body", bodyStr)
-		return nil, fmt.Errorf("LLM API 返回 %d: %s", resp.StatusCode, bodyStr)
+		slog.Error("llm sync response error", "status", resp.StatusCode, "body", bodyStr)
+		return nil, fmt.Errorf("llm api returned %d: %s", resp.StatusCode, bodyStr)
 	}
 
 	var result ChatCompletionResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("解析响应失败: %w", err)
+		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	slog.Info("llm sync done", "model", c.ModelName, "duration_ms", time.Since(start).Milliseconds())
+	slog.Info("llm sync request done", "model", c.ModelName, "duration_ms", time.Since(start).Milliseconds())
 	return &result, nil
 }

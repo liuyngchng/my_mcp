@@ -14,7 +14,7 @@ import (
 	"mcp-chat/internal/proxy"
 )
 
-// Client MCP Streamable HTTP 客户端
+// JSON-RPC 消息结构
 type jsonRPCRequest struct {
 	JSONRPC string      `json:"jsonrpc"`
 	ID      int         `json:"id"`
@@ -81,8 +81,9 @@ func NewClient(name, url string, headers map[string]string, verifySSL bool, enab
 }
 
 // NewClientFromConfig 从配置创建多个 MCP 客户端
-func NewClientFromConfig(cfg *config.Config) ([]*Client, error) {
-	servers, err := config.LoadMCPServers(cfg.MCP.ServersFile)
+// serversJSON 为 embed 的 mcp_servers.json 字节内容
+func NewClientFromConfig(cfg *config.Config, serversJSON []byte) ([]*Client, error) {
+	servers, err := config.LoadMCPServers(serversJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +100,7 @@ func NewClientFromConfig(cfg *config.Config) ([]*Client, error) {
 	clients := make([]*Client, 0, len(servers))
 	for _, srv := range servers {
 		headers := srv.Headers
-		// 从 cfg.yml 读取全局认证 token，代码自动加 Bearer 前缀
+		// 从 cfg.yml 读取全局认证 token，自动加 Bearer 前缀
 		if cfg.MCP.AuthToken != "" {
 			if headers == nil {
 				headers = make(map[string]string)
@@ -111,7 +112,7 @@ func NewClientFromConfig(cfg *config.Config) ([]*Client, error) {
 		clients = append(clients, NewClient(srv.Name, srv.URL, headers, verifySSL, enableProxy))
 	}
 
-	slog.Info("mcp servers loaded from json", "file", cfg.MCP.ServersFile, "count", len(clients))
+	slog.Info("mcp servers loaded from embedded json", "count", len(clients))
 	return clients, nil
 }
 
@@ -127,12 +128,12 @@ func (c *Client) call(method string, params interface{}) (*jsonRPCResponse, erro
 
 	body, err := json.Marshal(req)
 	if err != nil {
-		return nil, fmt.Errorf("序列化请求失败: %w", err)
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	httpReq, err := http.NewRequest("POST", c.URL, bytes.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("创建 HTTP 请求失败: %w", err)
+		return nil, fmt.Errorf("failed to create http request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "application/json")
@@ -143,12 +144,13 @@ func (c *Client) call(method string, params interface{}) (*jsonRPCResponse, erro
 		httpReq.Header.Set(k, v)
 	}
 
-	slog.Info("mcp request", "url", c.URL, "method", method)
+	// 请求前日志
+	slog.Info("mcp request start", "server", c.Name, "url", c.URL, "method", method, "req_id", c.reqID)
 	start := time.Now()
 	resp, err := c.httpCli.Do(httpReq)
 	if err != nil {
-		slog.Error("mcp request error", "url", c.URL, "method", method, "error", err)
-		return nil, fmt.Errorf("MCP 请求失败: %w", err)
+		slog.Error("mcp request failed", "server", c.Name, "url", c.URL, "method", method, "error", err, "duration_ms", time.Since(start).Milliseconds())
+		return nil, fmt.Errorf("mcp request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -159,22 +161,24 @@ func (c *Client) call(method string, params interface{}) (*jsonRPCResponse, erro
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("读取响应失败: %w", err)
+		slog.Error("mcp read response failed", "server", c.Name, "method", method, "error", err)
+		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	slog.Info("mcp response", "url", c.URL, "method", method, "status", resp.StatusCode, "duration_ms", time.Since(start).Milliseconds())
+	// 请求后日志
+	slog.Info("mcp request done", "server", c.Name, "url", c.URL, "method", method, "status", resp.StatusCode, "duration_ms", time.Since(start).Milliseconds())
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("MCP 返回 HTTP %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("mcp returned HTTP %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	var rpcResp jsonRPCResponse
 	if err := json.Unmarshal(respBody, &rpcResp); err != nil {
-		return nil, fmt.Errorf("解析响应失败: %w", err)
+		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
 	if rpcResp.Error != nil {
-		return nil, fmt.Errorf("MCP 错误 [%d]: %s", rpcResp.Error.Code, rpcResp.Error.Message)
+		return nil, fmt.Errorf("mcp error [%d]: %s", rpcResp.Error.Code, rpcResp.Error.Message)
 	}
 
 	return &rpcResp, nil
@@ -196,8 +200,10 @@ func (c *Client) Initialize() error {
 
 // ListTools 获取工具列表
 func (c *Client) ListTools() ([]Tool, error) {
+	slog.Info("mcp list tools start", "server", c.Name, "url", c.URL)
 	resp, err := c.call("tools/list", nil)
 	if err != nil {
+		slog.Error("mcp list tools failed", "server", c.Name, "error", err)
 		return nil, err
 	}
 
@@ -205,9 +211,11 @@ func (c *Client) ListTools() ([]Tool, error) {
 		Tools []Tool `json:"tools"`
 	}
 	if err := json.Unmarshal(resp.Result, &result); err != nil {
-		return nil, fmt.Errorf("解析工具列表失败: %w", err)
+		slog.Error("mcp parse tools failed", "server", c.Name, "error", err)
+		return nil, fmt.Errorf("failed to parse tools list: %w", err)
 	}
 
+	slog.Info("mcp list tools done", "server", c.Name, "count", len(result.Tools))
 	return result.Tools, nil
 }
 
@@ -218,8 +226,10 @@ func (c *Client) CallTool(name string, args map[string]interface{}) (string, err
 		"arguments": args,
 	}
 
+	slog.Info("mcp call tool start", "server", c.Name, "tool", name)
 	resp, err := c.call("tools/call", params)
 	if err != nil {
+		slog.Error("mcp call tool failed", "server", c.Name, "tool", name, "error", err)
 		return "", err
 	}
 
@@ -243,7 +253,7 @@ func (c *Client) CallTool(name string, args map[string]interface{}) (string, err
 		for _, c := range result.Content {
 			texts = append(texts, c.Text)
 		}
-		return "", fmt.Errorf("工具执行出错: %v", texts)
+		return "", fmt.Errorf("tool execution error: %v", texts)
 	}
 
 	var texts []string
@@ -264,5 +274,7 @@ func (c *Client) CallTool(name string, args map[string]interface{}) (string, err
 		}
 		joined += t
 	}
+
+	slog.Info("mcp call tool done", "server", c.Name, "tool", name, "result_len", len(joined))
 	return joined, nil
 }

@@ -25,7 +25,8 @@ type ChatHandler struct {
 }
 
 // NewChatHandler 创建聊天处理器
-func NewChatHandler(cfg *config.Config) *ChatHandler {
+// serversJSON 为 embed 的 mcp_servers.json 字节内容
+func NewChatHandler(cfg *config.Config, serversJSON []byte) *ChatHandler {
 	llmEnableProxy := true
 	if cfg.LLM.EnableProxy != nil {
 		llmEnableProxy = *cfg.LLM.EnableProxy
@@ -35,9 +36,9 @@ func NewChatHandler(cfg *config.Config) *ChatHandler {
 		llmVerifySSL = *cfg.LLM.VerifySSL
 	}
 
-	mcpSrvs, err := mcp.NewClientFromConfig(cfg)
+	mcpSrvs, err := mcp.NewClientFromConfig(cfg, serversJSON)
 	if err != nil {
-		slog.Error("加载 MCP 服务器列表失败", "error", err)
+		slog.Error("failed to load mcp servers", "error", err)
 		mcpSrvs = []*mcp.Client{}
 	}
 
@@ -57,16 +58,15 @@ func (h *ChatHandler) RefreshTools() error {
 	allTools := make([]llm.ToolDefinition, 0)
 	for i, srv := range h.MCPSrvs {
 		if err := srv.Initialize(); err != nil {
-			slog.Error("mcp init failed", "index", i, "url", srv.URL, "error", err)
+			slog.Error("mcp init failed", "index", i, "server", srv.Name, "url", srv.URL, "error", err)
 			continue
 		}
 		tools, err := srv.ListTools()
 		if err != nil {
-			slog.Error("mcp list tools failed", "index", i, "url", srv.URL, "error", err)
+			slog.Error("mcp list tools failed", "index", i, "server", srv.Name, "url", srv.URL, "error", err)
 			continue
 		}
 		for _, tool := range tools {
-			// 给工具名加前缀，避免多服务器冲突
 			uniqueName := fmt.Sprintf("s%d_%s", i, tool.Name)
 			params := tool.InputSchema
 			if params == nil {
@@ -85,7 +85,7 @@ func (h *ChatHandler) RefreshTools() error {
 				},
 			})
 		}
-		slog.Info("mcp tools loaded", "index", i, "url", srv.URL, "count", len(tools))
+		slog.Info("mcp tools loaded", "index", i, "server", srv.Name, "count", len(tools))
 	}
 	h.Tools = allTools
 	slog.Info("total tools loaded", "count", len(allTools))
@@ -97,16 +97,16 @@ func (h *ChatHandler) RefreshTools() error {
 func (h *ChatHandler) findMCPServer(toolName string) (*mcp.Client, string, error) {
 	parts := strings.SplitN(toolName, "_", 2)
 	if len(parts) != 2 {
-		return nil, "", fmt.Errorf("无效的工具名格式: %s", toolName)
+		return nil, "", fmt.Errorf("invalid tool name format: %s", toolName)
 	}
 
 	var idx int
 	if _, err := fmt.Sscanf(parts[0], "s%d", &idx); err != nil {
-		return nil, "", fmt.Errorf("解析服务器索引失败: %s", toolName)
+		return nil, "", fmt.Errorf("failed to parse server index: %s", toolName)
 	}
 
 	if idx < 0 || idx >= len(h.MCPSrvs) {
-		return nil, "", fmt.Errorf("服务器索引 %d 超出范围", idx)
+		return nil, "", fmt.Errorf("server index %d out of range", idx)
 	}
 
 	return h.MCPSrvs[idx], parts[1], nil
@@ -227,7 +227,7 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 					messages = append(messages, llm.ChatMessage{
 						Role:       "tool",
 						ToolCallID: tc.ID,
-						Content:    fmt.Sprintf("错误: %s", err.Error()),
+						Content:    fmt.Sprintf("error: %s", err.Error()),
 					})
 					continue
 				}
@@ -238,19 +238,19 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 					args = make(map[string]interface{})
 				}
 
-				slog.Info("calling mcp tool", "tool", originalName, "server", srv.URL, "args", tc.Function.Arguments)
+				slog.Info("calling mcp tool", "tool", originalName, "server", srv.Name, "url", srv.URL)
 				result, err := srv.CallTool(originalName, args)
 				if err != nil {
-					slog.Error("mcp tool call failed", "tool", originalName, "error", err)
+					slog.Error("mcp tool call failed", "tool", originalName, "server", srv.Name, "error", err)
 					messages = append(messages, llm.ChatMessage{
 						Role:       "tool",
 						ToolCallID: tc.ID,
-						Content:    fmt.Sprintf("工具执行出错: %s", err.Error()),
+						Content:    fmt.Sprintf("tool execution error: %s", err.Error()),
 					})
 					continue
 				}
 
-				slog.Info("mcp tool result", "tool", originalName, "result_len", len(result))
+				slog.Info("mcp tool result", "tool", originalName, "server", srv.Name, "result_len", len(result))
 				messages = append(messages, llm.ChatMessage{
 					Role:       "tool",
 					ToolCallID: tc.ID,

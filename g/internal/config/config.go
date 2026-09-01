@@ -23,13 +23,12 @@ type ServerConfig struct {
 
 // MCPConfig MCP 全局配置
 type MCPConfig struct {
-	ServersFile string `yaml:"servers_file"`
 	VerifySSL   *bool  `yaml:"verify_ssl"`
 	EnableProxy *bool  `yaml:"enable_proxy"`
 	AuthToken   string `yaml:"auth_token"`
 }
 
-// MCPServerJSON MCP 服务器条目（标准 MCP 客户端 JSON 格式）
+// MCPServerJSON MCP 服务器条目
 type MCPServerJSON struct {
 	Name    string            `json:"name"`
 	URL     string            `json:"url"`
@@ -57,35 +56,27 @@ type LLMConfig struct {
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("读取配置文件 %s 失败: %w", path, err)
+		return nil, fmt.Errorf("failed to read config file %s: %w", path, err)
 	}
 
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("解析配置文件失败: %w", err)
+		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
 	// 默认值
 	if cfg.Server.Port == 0 {
 		cfg.Server.Port = 19002
 	}
-	if cfg.MCP.ServersFile == "" {
-		cfg.MCP.ServersFile = "mcp_servers.json"
-	}
 
 	return &cfg, nil
 }
 
-// LoadMCPServers 从 JSON 文件加载 MCP 服务器列表
-func LoadMCPServers(path string) ([]MCPServerJSON, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("读取 MCP 服务器配置文件 %s 失败: %w", path, err)
-	}
-
+// LoadMCPServers 从 JSON 字节解析 MCP 服务器列表
+func LoadMCPServers(data []byte) ([]MCPServerJSON, error) {
 	var file mcpServersFileJSON
 	if err := json.Unmarshal(data, &file); err != nil {
-		return nil, fmt.Errorf("解析 MCP 服务器配置失败: %w", err)
+		return nil, fmt.Errorf("failed to parse MCP servers config: %w", err)
 	}
 
 	servers := make([]MCPServerJSON, 0, len(file.MCPServers))
