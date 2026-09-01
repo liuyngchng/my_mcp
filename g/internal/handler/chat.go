@@ -68,6 +68,7 @@ func (h *ChatHandler) RefreshTools() error {
 		}
 		for _, tool := range tools {
 			uniqueName := fmt.Sprintf("s%d_%s", i, tool.Name)
+				desc := fmt.Sprintf("[MCP端点: %s] %s", srv.Name, tool.Description)
 			params := tool.InputSchema
 			if params == nil {
 				params = map[string]interface{}{
@@ -80,7 +81,7 @@ func (h *ChatHandler) RefreshTools() error {
 				Type: "function",
 				Function: llm.FunctionDefinition{
 					Name:        uniqueName,
-					Description: tool.Description,
+					Description: desc,
 					Parameters:  params,
 				},
 			})
@@ -144,7 +145,12 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 		"1. 如果用户的问题需要查询数据，且系统提供了可用的工具，请使用工具获取数据后再回答。\n" +
 		"2. 如果系统没有提供任何工具，或者工具调用全部失败，你必须直接回复'未查询到相关信息。'，不得编造、猜测或依据训练数据给出任何具体数据。\n" +
 		"3. 如果用户的问题不需要工具（如闲聊、常识问答），可以直接回答。\n" +
-		"4. 回答必须简洁、准确。"
+		"4. 回答必须简洁、准确。\n" +
+			"5. 当你的回答有明确的 MCP 工具查询结果作为依据时，必须在回答末尾附上数据来源说明，格式如下：\n" +
+			"   ---\n" +
+			"   📡 数据来源：\n" +
+			"   - MCP端点「{server_name}」→ 工具「{tool_name}」\n" +
+			"   如果调用了多个工具，请逐一列出。如果未调用任何工具，则不需要添加此说明。"
 
 	if len(h.Tools) == 0 {
 		systemPrompt += "\n\n当前系统未加载任何 MCP 工具，无法查询数据。对于任何需要查询的问题，请回复'未查询到相关信息，请确认 MCP 服务配置是否正确。'"

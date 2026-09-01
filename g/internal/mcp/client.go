@@ -177,8 +177,10 @@ func (c *Client) call(method string, params interface{}) (*jsonRPCResponse, erro
 		return nil, fmt.Errorf("mcp returned HTTP %d: %s", resp.StatusCode, string(respBody))
 	}
 
+	payload := extractJSON(respBody)
+
 	var rpcResp jsonRPCResponse
-	if err := json.Unmarshal(respBody, &rpcResp); err != nil {
+	if err := json.Unmarshal(payload, &rpcResp); err != nil {
 		// 打印响应体前 500 字符，方便排查格式问题
 		preview := string(respBody)
 		if len([]rune(preview)) > 500 {
@@ -194,6 +196,31 @@ func (c *Client) call(method string, params interface{}) (*jsonRPCResponse, erro
 	}
 
 	return &rpcResp, nil
+}
+
+// extractJSON 从响应体中提取 JSON。
+// MCP Streamable HTTP 服务器可能返回纯 JSON，也可能返回 SSE 格式
+// （形如 "event: message\ndata: {...}"）。这里做兼容处理：
+//   - 若响应体本身是合法 JSON，直接使用；
+//   - 否则扫描所有 "data:" 行，取第一个以 "{" 开头的内容作为 JSON 负载。
+func extractJSON(body []byte) []byte {
+	trimmed := bytes.TrimSpace(body)
+	if len(trimmed) > 0 && (trimmed[0] == '{' || trimmed[0] == '[') {
+		return trimmed
+	}
+
+	for _, line := range bytes.Split(trimmed, []byte("\n")) {
+		line = bytes.TrimSpace(line)
+		if !bytes.HasPrefix(line, []byte("data:")) {
+			continue
+		}
+		data := bytes.TrimSpace(bytes.TrimPrefix(line, []byte("data:")))
+		if len(data) > 0 && (data[0] == '{' || data[0] == '[') {
+			return data
+		}
+	}
+
+	return trimmed
 }
 
 // Initialize 初始化 MCP 会话
