@@ -45,7 +45,7 @@ func NewChatHandler(cfg *config.Config, serversJSON []byte) *ChatHandler {
 	h := &ChatHandler{
 		Cfg:       cfg,
 		MCPSrvs:   mcpSrvs,
-		LLMClient: llm.New(cfg.LLM.APIURI, cfg.LLM.APIKey, cfg.LLM.ModelName, llmEnableProxy, llmVerifySSL),
+		LLMClient: llm.New(cfg.LLM.APIURI, cfg.LLM.APIKey, cfg.LLM.ModelName, cfg.LLM.MaxTokens, llmEnableProxy, llmVerifySSL),
 	}
 
 	// 启动时初始化所有 MCP 连接并获取工具列表

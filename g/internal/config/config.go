@@ -50,6 +50,7 @@ type LLMConfig struct {
 	APIURI      string `yaml:"api_uri"`
 	APIKey      string `yaml:"api_key"`
 	ModelName   string `yaml:"model_name"`
+	MaxTokens   int    `yaml:"max_tokens"`
 	EnableProxy *bool  `yaml:"enable_proxy"`
 	VerifySSL   *bool  `yaml:"verify_ssl"`
 }

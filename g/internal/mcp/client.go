@@ -181,8 +181,9 @@ func (c *Client) call(method string, params interface{}) (*jsonRPCResponse, erro
 	if err := json.Unmarshal(respBody, &rpcResp); err != nil {
 		// 打印响应体前 500 字符，方便排查格式问题
 		preview := string(respBody)
-		if len(preview) > 500 {
-			preview = preview[:500] + "..."
+		if len([]rune(preview)) > 500 {
+			runes := []rune(preview)
+			preview = string(runes[:500]) + "..."
 		}
 		slog.Error("mcp response parse failed", "server", c.Name, "method", method, "body_preview", preview)
 		return nil, fmt.Errorf("failed to parse response: %w", err)

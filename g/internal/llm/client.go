@@ -53,10 +53,11 @@ type FunctionDefinition struct {
 
 // ChatCompletionRequest 非流式请求
 type ChatCompletionRequest struct {
-	Model    string           `json:"model"`
-	Messages []ChatMessage    `json:"messages"`
-	Tools    []ToolDefinition `json:"tools,omitempty"`
-	Stream   bool             `json:"stream"`
+	Model     string           `json:"model"`
+	Messages  []ChatMessage    `json:"messages"`
+	Tools     []ToolDefinition `json:"tools,omitempty"`
+	Stream    bool             `json:"stream"`
+	MaxTokens int              `json:"max_tokens,omitempty"`
 }
 
 // ChatCompletionResponse 非流式响应
@@ -83,12 +84,13 @@ type Client struct {
 	BaseURL     string
 	APIKey      string
 	ModelName   string
+	MaxTokens   int
 	enableProxy bool
 	httpCli     *http.Client
 }
 
 // New 创建 LLM 客户端
-func New(baseURL, apiKey, modelName string, enableProxy bool, verifySSL bool) *Client {
+func New(baseURL, apiKey, modelName string, maxTokens int, enableProxy bool, verifySSL bool) *Client {
 	tr := proxy.Transport(enableProxy)
 	if !verifySSL {
 		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
@@ -107,6 +109,7 @@ func New(baseURL, apiKey, modelName string, enableProxy bool, verifySSL bool) *C
 		BaseURL:     strings.TrimRight(baseURL, "/"),
 		APIKey:      apiKey,
 		ModelName:   modelName,
+		MaxTokens:   maxTokens,
 		enableProxy: enableProxy,
 		httpCli: &http.Client{
 			Transport: tr,
@@ -125,10 +128,11 @@ func (c *Client) ChatStream(messages []ChatMessage, tools []ToolDefinition) (<-c
 		defer close(errCh)
 
 		reqBody := ChatCompletionRequest{
-			Model:    c.ModelName,
-			Messages: messages,
-			Tools:    tools,
-			Stream:   true,
+			Model:     c.ModelName,
+			Messages:  messages,
+			Tools:     tools,
+			Stream:    true,
+			MaxTokens: c.MaxTokens,
 		}
 
 		jsonData, err := json.Marshal(reqBody)
@@ -161,8 +165,9 @@ func (c *Client) ChatStream(messages []ChatMessage, tools []ToolDefinition) (<-c
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			bodyStr := string(body)
-			if len(bodyStr) > 300 {
-				bodyStr = bodyStr[:300] + "..."
+			if len([]rune(bodyStr)) > 300 {
+				runes := []rune(bodyStr)
+				bodyStr = string(runes[:300]) + "..."
 			}
 			slog.Error("llm stream response error", "status", resp.StatusCode, "body", bodyStr)
 			errCh <- fmt.Errorf("llm api returned %d: %s", resp.StatusCode, bodyStr)
@@ -211,10 +216,11 @@ func (c *Client) ChatStream(messages []ChatMessage, tools []ToolDefinition) (<-c
 // Chat 非流式聊天（用于 tool calling 循环）
 func (c *Client) Chat(messages []ChatMessage, tools []ToolDefinition) (*ChatCompletionResponse, error) {
 	reqBody := ChatCompletionRequest{
-		Model:    c.ModelName,
-		Messages: messages,
-		Tools:    tools,
-		Stream:   false,
+		Model:     c.ModelName,
+		Messages:  messages,
+		Tools:     tools,
+		Stream:    false,
+		MaxTokens: c.MaxTokens,
 	}
 
 	jsonData, err := json.Marshal(reqBody)
@@ -248,8 +254,9 @@ func (c *Client) Chat(messages []ChatMessage, tools []ToolDefinition) (*ChatComp
 
 	if resp.StatusCode != http.StatusOK {
 		bodyStr := string(body)
-		if len(bodyStr) > 300 {
-			bodyStr = bodyStr[:300] + "..."
+		if len([]rune(bodyStr)) > 300 {
+			runes := []rune(bodyStr)
+			bodyStr = string(runes[:300]) + "..."
 		}
 		slog.Error("llm sync response error", "status", resp.StatusCode, "body", bodyStr)
 		return nil, fmt.Errorf("llm api returned %d: %s", resp.StatusCode, bodyStr)
