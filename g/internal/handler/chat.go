@@ -236,10 +236,10 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 		}
 
 		if i == maxIter-1 {
-			sseStatus(w, flusher, "正在生成最终回答...")
+			sseStatus(w, flusher, "生成回答")
 			resp, err := h.LLMClient.Chat(messages, nil)
 			if err != nil {
-				sseStatus(w, flusher, fmt.Sprintf("请求 LLM 出错: %s", err.Error()))
+				sseStatus(w, flusher, fmt.Sprintf("LLM错误: %s", err.Error()))
 				sseDone(w, flusher)
 				return
 			}
@@ -256,11 +256,11 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 
 		// 非流式调用 LLM（带工具），判断是否需要 tool calling
 		if i == 0 {
-			sseStatus(w, flusher, "正在分析您的问题...")
+			sseStatus(w, flusher, "请求分析")
 		}
 		resp, err := h.LLMClient.Chat(messages, h.Tools)
 		if err != nil {
-			sseStatus(w, flusher, fmt.Sprintf("请求 LLM 出错: %s", err.Error()))
+			sseStatus(w, flusher, fmt.Sprintf("LLM错误: %s", err.Error()))
 			sseDone(w, flusher)
 			return
 		}
@@ -276,14 +276,14 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 		// 如果 LLM 直接返回了答案（stop），直接输出完整回答
 		if choice.FinishReason == "stop" {
 			if choice.Message.Content != "" {
-				sseStatus(w, flusher, "正在生成回答...")
+				sseStatus(w, flusher, "生成回答")
 				sseContent(w, flusher, choice.Message.Content)
 				sseDone(w, flusher)
 				h.sessions.append(sessionID, llm.ChatMessage{Role: "assistant", Content: choice.Message.Content})
 				return
 			}
 			// 内容为空时回退到流式输出
-			sseStatus(w, flusher, "正在生成回答...")
+			sseStatus(w, flusher, "生成回答")
 			h.streamAssistant(w, flusher, sessionID, messages)
 			return
 		}
@@ -299,7 +299,7 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 					sseStatus(w, flusher, fmt.Sprintf("⚠️ 无法找到工具: %s", tc.Function.Name))
 					continue
 				}
-				sseStatus(w, flusher, fmt.Sprintf("📡 正在查询 %s → %s ...", srv.Name, originalName))
+				sseStatus(w, flusher, fmt.Sprintf("mcp__%s__%s", srv.Name, originalName))
 			}
 
 			for _, tc := range choice.Message.ToolCalls {
@@ -323,7 +323,7 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 				result, err := srv.CallTool(originalName, args)
 				if err != nil {
 					slog.Error("mcp tool call failed", "tool", originalName, "server", srv.Name, "error", err)
-					sseStatus(w, flusher, fmt.Sprintf("❌ %s → %s 查询失败", srv.Name, originalName))
+					sseStatus(w, flusher, fmt.Sprintf("❌ mcp__%s__%s 失败", srv.Name, originalName))
 					messages = append(messages, llm.ChatMessage{
 						Role:       "tool",
 						ToolCallID: tc.ID,
@@ -333,7 +333,7 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 				}
 
 				slog.Info("mcp tool result", "tool", originalName, "server", srv.Name, "result_len", len(result))
-				sseStatus(w, flusher, fmt.Sprintf("✅ %s 查询完成，正在分析结果...", srv.Name))
+				sseStatus(w, flusher, fmt.Sprintf("✅ mcp__%s__%s 完成", srv.Name, originalName))
 				messages = append(messages, llm.ChatMessage{
 					Role:       "tool",
 					ToolCallID: tc.ID,
@@ -346,7 +346,7 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 
 		// 其他情况
 		if choice.Message.Content != "" {
-			sseStatus(w, flusher, "正在生成回答...")
+			sseStatus(w, flusher, "生成回答")
 			h.streamAssistant(w, flusher, sessionID, messages)
 			return
 		}
@@ -354,7 +354,7 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 		return
 	}
 
-	sseStatus(w, flusher, "处理超时，未能生成完整回答。")
+	sseStatus(w, flusher, "处理超时")
 	sseDone(w, flusher)
 }
 

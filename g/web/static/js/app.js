@@ -138,7 +138,7 @@ async function fetchQueryData(query) {
 
     abortController = new AbortController();
 
-    currentBotMessage = addMessage('<div class="typing-indicator"><span class="dot"></span><span class="dot"></span><span class="dot"></span> <span class="status-text">思考中...</span></div>', 'bot');
+    currentBotMessage = addMessage('<div class="typing-indicator"><span class="dot"></span><span class="dot"></span><span class="dot"></span> <span class="status-text">请求处理</span></div>', 'bot');
     currentStatusMessage = currentBotMessage.querySelector('.status-text');
 
     try {
