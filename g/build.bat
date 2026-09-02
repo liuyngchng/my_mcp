@@ -9,6 +9,14 @@ REM ============================================
 
 setlocal enabledelayedexpansion
 
+REM --- garble 路径 ---
+set "GARBLE=%USERPROFILE%\go\bin\garble.exe"
+if not exist "%GARBLE%" (
+    echo ERROR: garble not found at %GARBLE%
+    echo Install with: go install mvdan.cc/garble@latest
+    exit /b 1
+)
+
 REM --- version: use arg or today's date (YYYYMMDD) ---
 set "VERSION=%1"
 if "%VERSION%"=="" (
@@ -29,7 +37,6 @@ echo.
 
 REM --- build_one <arch> ---
 call :build_one amd64
-call :build_one arm64
 
 echo ============================================
 echo  Done. Output: %BUILD_DIR%\
@@ -46,12 +53,12 @@ set "ARCH=%~1"
 set "OUT=%BUILD_DIR%\%APP_NAME%_%VERSION%_windows_%ARCH%.exe"
 
 echo --- [windows/%ARCH%] ---
-echo   CGO_ENABLED=0 GOOS=windows GOARCH=%ARCH% go build -ldflags="-s -w -X main.version=%VERSION%" -o %OUT%
+echo   CGO_ENABLED=0 GOOS=windows GOARCH=%ARCH% garble -literals -tiny build -ldflags="-s -w -X main.version=%VERSION%" -o %OUT%
 
 set "CGO_ENABLED=0"
 set "GOOS=windows"
 set "GOARCH=%ARCH%"
-go build -ldflags="-s -w -X main.version=%VERSION%" -o "%OUT%" .
+"%GARBLE%" -literals -tiny build -ldflags="-s -w -X main.version=%VERSION%" -o "%OUT%" .
 
 if errorlevel 1 (
     echo   [ERROR] Build failed for windows/%ARCH%
