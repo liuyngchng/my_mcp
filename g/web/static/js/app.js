@@ -11,6 +11,29 @@ let currentBotMessage = null;
 
 const MAX_MESSAGES = 50;
 let messages = [];
+let sessionId = null;
+
+function getSessionStorageKey() {
+    return 'mcp_chat_session_id';
+}
+
+function loadSessionId() {
+    try {
+        sessionId = localStorage.getItem(getSessionStorageKey());
+    } catch (e) {
+        sessionId = null;
+    }
+}
+
+function saveSessionId() {
+    try {
+        if (sessionId) {
+            localStorage.setItem(getSessionStorageKey(), sessionId);
+        }
+    } catch (e) {
+        // ignore
+    }
+}
 
 function getStorageKey() {
     return 'mcp_chat_messages';
@@ -53,6 +76,7 @@ function restoreMessages() {
 // 页面加载
 window.onload = function() {
     loadMessages();
+    loadSessionId();
     if (messages.length > 0) {
         restoreMessages();
     }
@@ -125,7 +149,8 @@ async function fetchQueryData(query) {
                 'Accept': 'text/event-stream'
             },
             body: JSON.stringify({
-                msg: query
+                msg: query,
+                session_id: sessionId || ''
             }),
             signal: abortController.signal
         });
@@ -169,13 +194,25 @@ async function fetchQueryData(query) {
                             currentStatusMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                         }
                         currentEventType = '';
+                    } else if (currentEventType === 'session') {
+                        // 保存后端分配的会话 ID
+                        sessionId = data;
+                        saveSessionId();
+                        currentEventType = '';
                     } else {
                         // 正文内容到达，清除状态行
                         if (currentStatusMessage) {
                             currentStatusMessage.remove();
                             currentStatusMessage = null;
                         }
-                        accumulatedText += data;
+                        // sseContent 使用 JSON 编码，解析后拼接到正文
+                        let decoded = data;
+                        try {
+                            decoded = JSON.parse(data);
+                        } catch (e) {
+                            // 兼容旧格式（非 JSON 编码的纯文本）
+                        }
+                        accumulatedText += decoded;
                         updateBotMessage(accumulatedText);
                         currentEventType = '';
                     }
@@ -192,7 +229,11 @@ async function fetchQueryData(query) {
             if (lastLine.startsWith('data: ')) {
                 const data = lastLine.substring(6);
                 if (data !== '[DONE]' && data !== '' && currentEventType !== 'status') {
-                    accumulatedText += data;
+                    let decoded = data;
+                    try {
+                        decoded = JSON.parse(data);
+                    } catch (e) {}
+                    accumulatedText += decoded;
                     updateBotMessage(accumulatedText);
                 }
             }
@@ -298,6 +339,8 @@ async function newChat() {
     }
     messages = [];
     saveMessages();
+    sessionId = null;
+    saveSessionId();
     chatContainer.innerHTML = '';
     resetUI();
 }

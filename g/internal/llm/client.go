@@ -174,7 +174,7 @@ func (c *Client) ChatStream(messages []ChatMessage, tools []ToolDefinition) (<-c
 			return
 		}
 
-		reader := bufio.NewReader(resp.Body)
+		reader := bufio.NewReaderSize(resp.Body, 64*1024)
 		chunkCount := 0
 		for {
 			line, err := reader.ReadString('\n')
