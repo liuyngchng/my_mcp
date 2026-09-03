@@ -62,11 +62,11 @@ func NewClient(name, url string, headers map[string]string, verifySSL bool, enab
 
 	proxyURL, proxyEnabled := proxy.Resolve(enableProxy)
 	if proxyEnabled {
-		slog.Info("mcp client using proxy", "name", name, "url", url, "proxy", proxyURL.String())
+		slog.Info("mcp_client_using_proxy", "name", name, "url", url, "proxy", proxyURL.String())
 	} else if enableProxy {
-		slog.Info("mcp client proxy enabled but no proxy env var, connecting directly", "name", name, "url", url)
+		slog.Info("mcp_client_proxy_no_env", "name", name, "url", url)
 	} else {
-		slog.Info("mcp client proxy disabled, connecting directly", "name", name, "url", url)
+		slog.Info("mcp_client_proxy_disabled", "name", name, "url", url)
 	}
 
 	return &Client{
@@ -117,7 +117,7 @@ func NewClientFromConfig(cfg *config.Config, serversJSON []byte) ([]*Client, err
 		clients = append(clients, NewClient(srv.Name, srv.URL, headers, verifySSL, enableProxy))
 	}
 
-	slog.Info("mcp servers loaded from embedded json", "count", len(clients))
+	slog.Info("mcp_servers_loaded_from_embedded_json", "count", len(clients))
 	return clients, nil
 }
 
@@ -150,11 +150,11 @@ func (c *Client) call(method string, params interface{}) (*jsonRPCResponse, erro
 	}
 
 	// 请求前日志
-	slog.Info("mcp request start", "server", c.Name, "url", c.URL, "method", method, "req_id", c.reqID)
+	slog.Info("mcp_jsonrpc_request_start", "server", c.Name, "url", c.URL, "method", method, "req_id", c.reqID)
 	start := time.Now()
 	resp, err := c.httpCli.Do(httpReq)
 	if err != nil {
-		slog.Error("mcp request failed", "server", c.Name, "url", c.URL, "method", method, "error", err, "duration_ms", time.Since(start).Milliseconds())
+		slog.Error("mcp_jsonrpc_request_failed", "server", c.Name, "url", c.URL, "method", method, "error", err, "duration_ms", time.Since(start).Milliseconds())
 		return nil, fmt.Errorf("mcp request failed: %w", err)
 	}
 	defer resp.Body.Close()
@@ -166,12 +166,12 @@ func (c *Client) call(method string, params interface{}) (*jsonRPCResponse, erro
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		slog.Error("mcp read response failed", "server", c.Name, "method", method, "error", err)
+		slog.Error("mcp_jsonrpc_read_response_failed", "server", c.Name, "method", method, "error", err)
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
 	// 请求后日志
-	slog.Info("mcp request done", "server", c.Name, "url", c.URL, "method", method, "status", resp.StatusCode, "duration_ms", time.Since(start).Milliseconds())
+	slog.Info("mcp_jsonrpc_request_done", "server", c.Name, "url", c.URL, "method", method, "status", resp.StatusCode, "duration_ms", time.Since(start).Milliseconds())
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("mcp returned HTTP %d: %s", resp.StatusCode, string(respBody))
@@ -187,7 +187,7 @@ func (c *Client) call(method string, params interface{}) (*jsonRPCResponse, erro
 			runes := []rune(preview)
 			preview = string(runes[:500]) + "..."
 		}
-		slog.Error("mcp response parse failed", "server", c.Name, "method", method, "body_preview", preview)
+		slog.Error("mcp_jsonrpc_parse_response_failed", "server", c.Name, "method", method, "body_preview", preview)
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
@@ -239,10 +239,10 @@ func (c *Client) Initialize() error {
 
 // ListTools 获取工具列表
 func (c *Client) ListTools() ([]Tool, error) {
-	slog.Info("mcp list tools start", "server", c.Name, "url", c.URL)
+	slog.Info("mcp_list_tools_start", "server", c.Name, "url", c.URL)
 	resp, err := c.call("tools/list", nil)
 	if err != nil {
-		slog.Error("mcp list tools failed", "server", c.Name, "error", err)
+		slog.Error("mcp_list_tools_request_failed", "server", c.Name, "error", err)
 		return nil, err
 	}
 
@@ -250,11 +250,11 @@ func (c *Client) ListTools() ([]Tool, error) {
 		Tools []Tool `json:"tools"`
 	}
 	if err := json.Unmarshal(resp.Result, &result); err != nil {
-		slog.Error("mcp parse tools failed", "server", c.Name, "error", err)
+		slog.Error("mcp_parse_tools_result_failed", "server", c.Name, "error", err)
 		return nil, fmt.Errorf("failed to parse tools list: %w", err)
 	}
 
-	slog.Info("mcp list tools done", "server", c.Name, "count", len(result.Tools))
+	slog.Info("mcp_list_tools_done", "server", c.Name, "count", len(result.Tools))
 	return result.Tools, nil
 }
 
@@ -265,10 +265,10 @@ func (c *Client) CallTool(name string, args map[string]interface{}) (string, err
 		"arguments": args,
 	}
 
-	slog.Info("mcp call tool start", "server", c.Name, "tool", name)
+	slog.Info("mcp_call_tool_start", "server", c.Name, "tool", name)
 	resp, err := c.call("tools/call", params)
 	if err != nil {
-		slog.Error("mcp call tool failed", "server", c.Name, "tool", name, "error", err)
+		slog.Error("mcp_call_tool_request_failed", "server", c.Name, "tool", name, "error", err)
 		return "", err
 	}
 
@@ -314,6 +314,6 @@ func (c *Client) CallTool(name string, args map[string]interface{}) (string, err
 		joined += t
 	}
 
-	slog.Info("mcp call tool done", "server", c.Name, "tool", name, "result_len", len(joined))
+	slog.Info("mcp_call_tool_done", "server", c.Name, "tool", name, "result_len", len(joined))
 	return joined, nil
 }

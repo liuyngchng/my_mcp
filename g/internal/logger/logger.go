@@ -215,7 +215,7 @@ func GinLogger() gin.HandlerFunc {
 		}
 
 		slog.LogAttrs(c.Request.Context(), level,
-			"GIN",
+			"gin_request_error",
 			slog.Int("status", statusCode),
 			slog.String("method", method),
 			slog.String("path", path),

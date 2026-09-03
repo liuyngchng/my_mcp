@@ -39,17 +39,17 @@ func main() {
 
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
-		slog.Error("failed to load config", "error", err, "path", cfgPath)
+		slog.Error("main_config_load_failed", "error", err, "path", cfgPath)
 		os.Exit(1)
 	}
 
 	// 按配置重新设置日志级别
 	if err := logger.Init(cfg.Server.Debug); err != nil {
-		slog.Error("failed to reinit logger", "error", err)
+		slog.Error("main_logger_reinit_failed", "error", err)
 		os.Exit(1)
 	}
 
-	slog.Info("starting mcp-chat", "port", cfg.Server.Port)
+	slog.Info("main_starting_mcp_chat", "port", cfg.Server.Port)
 
 	// 创建聊天处理器
 	chatHandler := handler.NewChatHandler(cfg, mcpServersJSON)
@@ -65,7 +65,7 @@ func main() {
 	// 加载 HTML 模板
 	tmpl, err := template.ParseFS(webFS, "web/templates/*")
 	if err != nil {
-		slog.Error("failed to load templates", "error", err)
+		slog.Error("main_template_load_failed", "error", err)
 		os.Exit(1)
 	}
 	r.SetHTMLTemplate(tmpl)
@@ -73,7 +73,7 @@ func main() {
 	// 静态文件
 	staticFS, err := fs.Sub(webFS, "web/static")
 	if err != nil {
-		slog.Error("failed to load static files", "error", err)
+		slog.Error("main_static_files_load_failed", "error", err)
 		os.Exit(1)
 	}
 	r.StaticFS("/static", http.FS(staticFS))
@@ -89,14 +89,14 @@ func main() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 		<-sigCh
-		slog.Info("shutting down...")
+		slog.Info("main_shutting_down")
 		os.Exit(0)
 	}()
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
-	slog.Info("server started", "addr", addr, "url", fmt.Sprintf("http://localhost%s", addr))
+	slog.Info("main_server_started", "addr", addr, "url", fmt.Sprintf("http://localhost%s", addr))
 	if err := r.Run(addr); err != nil {
-		slog.Error("server failed to start", "error", err)
+		slog.Error("main_server_start_failed", "error", err)
 		os.Exit(1)
 	}
 }

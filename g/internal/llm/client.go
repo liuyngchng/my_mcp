@@ -98,11 +98,11 @@ func New(baseURL, apiKey, modelName string, maxTokens int, enableProxy bool, ver
 
 	proxyURL, proxyEnabled := proxy.Resolve(enableProxy)
 	if proxyEnabled {
-		slog.Info("llm client using proxy", "proxy", proxyURL.String())
+		slog.Info("llm_client_using_proxy", "proxy", proxyURL.String())
 	} else if enableProxy {
-		slog.Info("llm client proxy enabled but no proxy env var, connecting directly")
+		slog.Info("llm_client_proxy_no_env")
 	} else {
-		slog.Info("llm client proxy disabled, connecting directly")
+		slog.Info("llm_client_proxy_disabled")
 	}
 
 	return &Client{
@@ -151,16 +151,16 @@ func (c *Client) ChatStream(messages []ChatMessage, tools []ToolDefinition) (<-c
 		req.Header.Set("Authorization", "Bearer "+c.APIKey)
 
 		start := time.Now()
-		slog.Info("llm stream request start", "model", c.ModelName, "url", url)
+		slog.Info("llm_stream_request_start", "model", c.ModelName, "url", url)
 		resp, err := c.httpCli.Do(req)
 		if err != nil {
-			slog.Error("llm stream request failed", "model", c.ModelName, "error", err, "duration_ms", time.Since(start).Milliseconds())
+			slog.Error("llm_stream_request_failed", "model", c.ModelName, "error", err, "duration_ms", time.Since(start).Milliseconds())
 			errCh <- fmt.Errorf("llm request failed: %w", err)
 			return
 		}
 		defer resp.Body.Close()
 
-		slog.Info("llm stream response received", "model", c.ModelName, "status", resp.StatusCode, "duration_ms", time.Since(start).Milliseconds())
+		slog.Info("llm_stream_response_received", "model", c.ModelName, "status", resp.StatusCode, "duration_ms", time.Since(start).Milliseconds())
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
@@ -169,7 +169,7 @@ func (c *Client) ChatStream(messages []ChatMessage, tools []ToolDefinition) (<-c
 				runes := []rune(bodyStr)
 				bodyStr = string(runes[:300]) + "..."
 			}
-			slog.Error("llm stream response error", "status", resp.StatusCode, "body", bodyStr)
+			slog.Error("llm_stream_response_error", "status", resp.StatusCode, "body", bodyStr)
 			errCh <- fmt.Errorf("llm api returned %d: %s", resp.StatusCode, bodyStr)
 			return
 		}
@@ -182,7 +182,7 @@ func (c *Client) ChatStream(messages []ChatMessage, tools []ToolDefinition) (<-c
 				if err == io.EOF {
 					break
 				}
-				slog.Warn("llm stream read error", "error", err)
+				slog.Warn("llm_stream_read_error", "error", err)
 				break
 			}
 
@@ -207,7 +207,7 @@ func (c *Client) ChatStream(messages []ChatMessage, tools []ToolDefinition) (<-c
 			}
 		}
 
-		slog.Info("llm stream done", "model", c.ModelName, "chunks", chunkCount, "duration_ms", time.Since(start).Milliseconds())
+		slog.Info("llm_stream_done", "model", c.ModelName, "chunks", chunkCount, "duration_ms", time.Since(start).Milliseconds())
 	}()
 
 	return chunkCh, errCh
@@ -237,15 +237,15 @@ func (c *Client) Chat(messages []ChatMessage, tools []ToolDefinition) (*ChatComp
 	req.Header.Set("Authorization", "Bearer "+c.APIKey)
 
 	start := time.Now()
-	slog.Info("llm sync request start", "model", c.ModelName, "url", url)
+	slog.Info("llm_sync_request_start", "model", c.ModelName, "url", url)
 	resp, err := c.httpCli.Do(req)
 	if err != nil {
-		slog.Error("llm sync request failed", "model", c.ModelName, "error", err, "duration_ms", time.Since(start).Milliseconds())
+		slog.Error("llm_sync_request_failed", "model", c.ModelName, "error", err, "duration_ms", time.Since(start).Milliseconds())
 		return nil, fmt.Errorf("llm request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
-	slog.Info("llm sync response received", "model", c.ModelName, "status", resp.StatusCode, "duration_ms", time.Since(start).Milliseconds())
+	slog.Info("llm_sync_response_received", "model", c.ModelName, "status", resp.StatusCode, "duration_ms", time.Since(start).Milliseconds())
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -258,7 +258,7 @@ func (c *Client) Chat(messages []ChatMessage, tools []ToolDefinition) (*ChatComp
 			runes := []rune(bodyStr)
 			bodyStr = string(runes[:300]) + "..."
 		}
-		slog.Error("llm sync response error", "status", resp.StatusCode, "body", bodyStr)
+		slog.Error("llm_sync_response_error", "status", resp.StatusCode, "body", bodyStr)
 		return nil, fmt.Errorf("llm api returned %d: %s", resp.StatusCode, bodyStr)
 	}
 
@@ -267,6 +267,6 @@ func (c *Client) Chat(messages []ChatMessage, tools []ToolDefinition) (*ChatComp
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	slog.Info("llm sync request done", "model", c.ModelName, "duration_ms", time.Since(start).Milliseconds())
+	slog.Info("llm_sync_request_done", "model", c.ModelName, "duration_ms", time.Since(start).Milliseconds())
 	return &result, nil
 }

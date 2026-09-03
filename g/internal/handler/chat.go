@@ -94,7 +94,7 @@ func NewChatHandler(cfg *config.Config, serversJSON []byte) *ChatHandler {
 
 	mcpSrvs, err := mcp.NewClientFromConfig(cfg, serversJSON)
 	if err != nil {
-		slog.Error("failed to load mcp servers", "error", err)
+		slog.Error("handler_mcp_servers_load_failed", "error", err)
 		mcpSrvs = []*mcp.Client{}
 	}
 
@@ -115,12 +115,12 @@ func (h *ChatHandler) RefreshTools() error {
 	allTools := make([]llm.ToolDefinition, 0)
 	for i, srv := range h.MCPSrvs {
 		if err := srv.Initialize(); err != nil {
-			slog.Error("mcp init failed", "index", i, "server", srv.Name, "url", srv.URL, "error", err)
+			slog.Error("handler_mcp_init_failed", "index", i, "server", srv.Name, "url", srv.URL, "error", err)
 			continue
 		}
 		tools, err := srv.ListTools()
 		if err != nil {
-			slog.Error("mcp list tools failed", "index", i, "server", srv.Name, "url", srv.URL, "error", err)
+			slog.Error("handler_mcp_list_tools_failed", "index", i, "server", srv.Name, "url", srv.URL, "error", err)
 			continue
 		}
 		for _, tool := range tools {
@@ -143,10 +143,10 @@ func (h *ChatHandler) RefreshTools() error {
 				},
 			})
 		}
-		slog.Info("mcp tools loaded", "index", i, "server", srv.Name, "count", len(tools))
+		slog.Info("handler_mcp_tools_loaded", "index", i, "server", srv.Name, "count", len(tools))
 	}
 	h.Tools = allTools
-	slog.Info("total tools loaded", "count", len(allTools))
+	slog.Info("handler_total_tools_loaded", "count", len(allTools))
 	return nil
 }
 
@@ -312,7 +312,7 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 			for _, tc := range choice.Message.ToolCalls {
 				srv, originalName, err := h.findMCPServer(tc.Function.Name)
 				if err != nil {
-					slog.Error("find mcp server failed", "tool", tc.Function.Name, "error", err)
+					slog.Error("handler_find_mcp_server_failed", "tool", tc.Function.Name, "error", err)
 					messages = append(messages, llm.ChatMessage{
 						Role:       "tool",
 						ToolCallID: tc.ID,
@@ -326,10 +326,10 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 					args = make(map[string]interface{})
 				}
 
-				slog.Info("calling mcp tool", "tool", originalName, "server", srv.Name, "url", srv.URL)
+				slog.Info("handler_calling_mcp_tool", "tool", originalName, "server", srv.Name, "url", srv.URL)
 				result, err := srv.CallTool(originalName, args)
 				if err != nil {
-					slog.Error("mcp tool call failed", "tool", originalName, "server", srv.Name, "error", err)
+					slog.Error("handler_mcp_tool_call_failed", "tool", originalName, "server", srv.Name, "error", err)
 					sseStatus(w, flusher, fmt.Sprintf("❌ mcp__%s__%s 失败", srv.Name, originalName))
 					messages = append(messages, llm.ChatMessage{
 						Role:       "tool",
@@ -339,7 +339,7 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 					continue
 				}
 
-				slog.Info("mcp tool result", "tool", originalName, "server", srv.Name, "result_len", len(result))
+				slog.Info("handler_mcp_tool_result", "tool", originalName, "server", srv.Name, "result_len", len(result))
 				sseStatus(w, flusher, fmt.Sprintf("✅ mcp__%s__%s 完成", srv.Name, originalName))
 				messages = append(messages, llm.ChatMessage{
 					Role:       "tool",
@@ -420,7 +420,7 @@ func (h *ChatHandler) streamAssistant(w io.Writer, flusher http.Flusher, session
 			sseContent(w, flusher, chunk)
 		case err, ok := <-errCh:
 			if ok {
-				slog.Warn("stream assistant error", "error", err)
+				slog.Warn("handler_stream_assistant_error", "error", err)
 			}
 			// 收到错误或 errCh 关闭，不退出，继续排空 streamCh
 		}
