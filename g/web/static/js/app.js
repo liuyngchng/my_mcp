@@ -339,8 +339,20 @@ async function newChat() {
     }
     messages = [];
     saveMessages();
+    // 清空后端会话历史
+    if (sessionId) {
+        try {
+            await fetch('/api/chat/clear', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: sessionId })
+            });
+        } catch (e) {
+            console.warn('清空后端会话历史失败:', e);
+        }
+    }
     sessionId = null;
-    saveSessionId();
+    localStorage.removeItem(getSessionStorageKey());
     chatContainer.innerHTML = '';
     resetUI();
 }

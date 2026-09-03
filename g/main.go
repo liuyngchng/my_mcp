@@ -82,7 +82,7 @@ func main() {
 	r.GET("/", pageHandler.Index)
 	r.GET("/health", chatHandler.Health)
 	r.POST("/api/chat", chatHandler.Chat)
-	r.POST("/api/refresh", chatHandler.Refresh)
+	r.POST("/api/chat/clear", chatHandler.ClearSession)
 
 	// 优雅退出
 	go func() {

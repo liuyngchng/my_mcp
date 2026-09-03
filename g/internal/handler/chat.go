@@ -55,6 +55,13 @@ func (s *sessionStore) append(sessionID string, msg llm.ChatMessage) {
 	s.data[sessionID] = append(h, msg)
 }
 
+// delete 删除指定会话的历史
+func (s *sessionStore) delete(sessionID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.data, sessionID)
+}
+
 // newSessionID 生成随机会话 ID
 func newSessionID() string {
 	b := make([]byte, 16)
@@ -356,6 +363,21 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 
 	sseStatus(w, flusher, "处理超时")
 	sseDone(w, flusher)
+}
+
+// ClearSession 清空会话历史（新对话）
+func (h *ChatHandler) ClearSession(c *gin.Context) {
+	var req struct {
+		SessionID string `json:"session_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "参数错误"})
+		return
+	}
+	if req.SessionID != "" {
+		h.sessions.delete(req.SessionID)
+	}
+	c.JSON(200, gin.H{"status": "ok"})
 }
 
 // Health 健康检查
