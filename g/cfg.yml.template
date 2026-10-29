@@ -20,10 +20,10 @@ mcp:
 
 # LLM 配置（OpenAI 兼容接口）
 llm:
-  api_uri: "https://api.openai.com/v1"
-  api_key: ""
-  model_name: "gpt-4o"
-  # max_tokens: 4096   # 最大输出 token 数，不填使用模型默认值
+  api_uri: "http://rd_llm_host:17001/v1"
+  api_key: "sk-123"
+  model_name: "deepseek-v4-pro"  
+# max_tokens: 4096   # 最大输出 token 数，不填使用模型默认值
   # verify_ssl: true  → verify HTTPS cert
   # verify_ssl: false → skip cert verification (self-signed / internal)
   verify_ssl: false
