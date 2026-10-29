@@ -16,6 +16,7 @@ from mcp.types import Request
 from starlette.responses import JSONResponse
 
 from tools import db_query
+from utils import get_local_ip
 
 app = FastMCP(port=19001, stateless_http=True, json_response=True, host='0.0.0.0')
 
@@ -77,6 +78,7 @@ def start_http_server():
 if __name__ == "__main__":
     add_your_tools()
     logger.info("start mcp server (backend only)")
+    logger.info(f"服务访问地址: https://{get_local_ip()}:19001")
     start_https_server()
 
 

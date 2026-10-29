@@ -11,6 +11,7 @@ import os
 
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 from client import auto_call_mcp, auto_call_mcp_yield, init_yml_cfg
+from utils import get_local_ip
 
 # 配置日志
 logging.config.fileConfig('logging.conf', encoding="utf-8")
@@ -95,4 +96,5 @@ def health_check():
 
 if __name__ == '__main__':
     # 启动 Flask 应用
+    logger.info(f"服务访问地址: http://{get_local_ip()}:19002")
     app.run(debug=True, host='0.0.0.0', port=19002)

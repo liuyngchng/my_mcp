@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -50,6 +51,10 @@ func main() {
 	}
 
 	slog.Info("main_starting_mcp_chat", "port", cfg.Server.Port)
+
+	// 获取本机局域网 IP
+	localIP := getLocalIP()
+	slog.Info("main_access_url", "url", fmt.Sprintf("http://%s:%d", localIP, cfg.Server.Port))
 
 	// 创建聊天处理器
 	chatHandler := handler.NewChatHandler(cfg, mcpServersJSON)
@@ -99,4 +104,15 @@ func main() {
 		slog.Error("main_server_start_failed", "error", err)
 		os.Exit(1)
 	}
+}
+
+// getLocalIP 获取本机首选局域网 IPv4 地址，获取失败时返回 localhost
+func getLocalIP() string {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return "localhost"
+	}
+	defer conn.Close()
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP.String()
 }

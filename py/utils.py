@@ -4,6 +4,7 @@
 
 import json
 import re
+import socket
 import sys
 import time
 from pathlib import Path
@@ -148,3 +149,13 @@ def build_curl_cmd(api, data, headers, proxies: dict | None):
         https_option = ''
     curl_log = f"curl -s {curl_proxy} -w'\\n' {https_option} -X POST {header_str} -d '{json.dumps(data, ensure_ascii=False)}' '{api}' | jq"
     return curl_log
+
+
+def get_local_ip() -> str:
+    """获取本机首选局域网 IPv4 地址，获取失败时回退为 localhost"""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+    except OSError:
+        return "localhost"

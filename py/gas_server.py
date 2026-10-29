@@ -16,6 +16,8 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import Request
 from starlette.responses import JSONResponse
 
+from utils import get_local_ip
+
 app = FastMCP(port=19002, stateless_http=True, json_response=True)  # 初始化 MCP 服务实例
 logging.config.fileConfig('logging.conf', encoding="utf-8")
 logger = logging.getLogger(__name__)
@@ -189,5 +191,6 @@ def get_setup_instructions(user_id: str) -> dict:
 
 if __name__ == "__main__":
     logger.info("start mcp server (backend only)")
+    logger.info(f"服务访问地址: http://{get_local_ip()}:19002")
     # 通信协议：transport = 'stdio', 表示使用标准输入输出，也可替换为 HTTP 或 WebSocket
     app.run(transport='streamable-http')  # 添加 frontend=False
